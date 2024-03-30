@@ -72,7 +72,7 @@ public partial class SAV_Encounters : Form
             {
                 if (sender is not PictureBox pb)
                     return;
-                var index = Array.IndexOf(PKXBOXES, sender);
+                var index = Array.IndexOf(PKXBOXES, pb);
                 if (index < 0)
                     return;
                 index += (SCR_Box.Value * RES_MIN);
@@ -88,7 +88,7 @@ public partial class SAV_Encounters : Form
         }
 
         Counter = L_Count.Text;
-        L_Viewed.Text = string.Empty; // invis for now
+        L_Viewed.Text = string.Empty; // invisible for now
         L_Viewed.MouseEnter += (sender, e) => hover.SetToolTip(L_Viewed, L_Viewed.Text);
         PopulateComboBoxes();
 
@@ -103,7 +103,7 @@ public partial class SAV_Encounters : Form
 
     private void GetTypeFilters()
     {
-        var types = (EncounterTypeGroup[])Enum.GetValues(typeof(EncounterTypeGroup));
+        var types = Enum.GetValues<EncounterTypeGroup>();
         var checks = types.Select(z => new CheckBox
         {
             Name = z.ToString(),
@@ -188,7 +188,7 @@ public partial class SAV_Encounters : Form
         var set = new ShowdownSet(editor);
         var criteria = EncounterCriteria.GetCriteria(set, editor.PersonalInfo);
         if (!isInChain)
-            criteria = criteria with { Gender = FixedGenderUtil.GenderRandom }; // Genderless tabs and a gendered enc -> let's play safe.
+            criteria = criteria with { Gender = default }; // Genderless tabs and a gendered enc -> let's play safe.
         return criteria;
     }
 
@@ -253,7 +253,7 @@ public partial class SAV_Encounters : Form
         var species = settings.Species == 0 ? GetFullRange(SAV.MaxSpeciesID) : [settings.Species];
         var results = GetAllSpeciesFormEncounters(species, SAV.Personal, versions, moves, pk, token);
         if (settings.SearchEgg != null)
-            results = results.Where(z => z.EggEncounter == settings.SearchEgg);
+            results = results.Where(z => z.IsEgg == settings.SearchEgg);
         if (settings.SearchShiny != null)
             results = results.Where(z => z.IsShiny == settings.SearchShiny);
 
@@ -358,7 +358,7 @@ public partial class SAV_Encounters : Form
             Species = GetU16(CB_Species),
 
             BatchInstructions = RTB_Instructions.Text,
-            Version = WinFormsUtil.GetIndex(CB_GameOrigin),
+            Version = (GameVersion)WinFormsUtil.GetIndex(CB_GameOrigin),
         };
 
         static ushort GetU16(ListControl cb)
