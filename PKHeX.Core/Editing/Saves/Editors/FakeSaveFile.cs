@@ -12,12 +12,13 @@ public sealed class FakeSaveFile : SaveFile
     public override string ChecksumInfo => string.Empty;
     public override byte Generation => 3;
     public override string GetString(ReadOnlySpan<byte> data) => string.Empty;
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer) => 0;
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option) => 0;
     public override PersonalTable3 Personal => PersonalTable.RS;
     public override int MaxEV => 0;
     public override ReadOnlySpan<ushort> HeldItems => Legal.HeldItems_RS;
     public override int GetBoxOffset(int box) => -1;
-    public override int MaxStringLengthOT => 5;
+    public override int MaxStringLengthTrainer => 5;
     public override int MaxStringLengthNickname => 5;
     public override ushort MaxMoveID => 5;
     public override ushort MaxSpeciesID => 1;

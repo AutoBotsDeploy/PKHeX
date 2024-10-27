@@ -115,7 +115,7 @@ public sealed class SAV3RSBox : SaveFile, IGCSaveFile, IBoxDetailName, IBoxDetai
     public override int MaxEV => EffortValues.Max255;
     public override byte Generation => 3;
     public override EntityContext Context => EntityContext.Gen3;
-    public override int MaxStringLengthOT => 7;
+    public override int MaxStringLengthTrainer => 7;
     public override int MaxStringLengthNickname => 10;
     public override int MaxMoney => 999999;
 
@@ -207,10 +207,10 @@ public sealed class SAV3RSBox : SaveFile, IGCSaveFile, IBoxDetailName, IBoxDetai
         WriteUInt16LittleEndian(data[(PokeCrypto.SIZE_3STORED + 2)..], pk.SID16);
     }
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter3.GetString(data, Japanese);
-
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter3.GetString(data, Japanese);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter3.LoadString(data, destBuffer, Japanese);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter3.SetString(destBuffer, value, maxLength, Japanese, option);
-    }
+        => StringConverter3.SetString(destBuffer, value, maxLength, Japanese, option);
 }

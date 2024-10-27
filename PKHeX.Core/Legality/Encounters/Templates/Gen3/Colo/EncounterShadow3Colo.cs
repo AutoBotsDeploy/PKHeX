@@ -89,6 +89,9 @@ public sealed record EncounterShadow3Colo(byte ID, short Gauge, ReadOnlyMemory<T
 
     private void SetPINGA_Regular(CK3 pk, EncounterCriteria criteria, PersonalInfo3 pi)
     {
+        if (criteria.IsSpecifiedIVs() && this.SetFromIVs(pk, criteria, pi))
+            return;
+
         var gender = criteria.GetGender(pi);
         var nature = criteria.GetNature();
         int ability = criteria.GetAbilityFromNumber(Ability);
@@ -107,8 +110,6 @@ public sealed record EncounterShadow3Colo(byte ID, short Gauge, ReadOnlyMemory<T
                 break;
         }
         while (++ctr <= max);
-
-        System.Diagnostics.Debug.Assert(ctr < max);
     }
 
     private void SetPINGA_EReader(CK3 pk)
@@ -138,10 +139,6 @@ public sealed record EncounterShadow3Colo(byte ID, short Gauge, ReadOnlyMemory<T
                 break;
         }
         while (++ctr <= max);
-
-#if DEBUG
-        System.Diagnostics.Debug.Assert(ctr < max);
-#endif
     }
 
     #endregion
@@ -199,11 +196,11 @@ public sealed record EncounterShadow3Colo(byte ID, short Gauge, ReadOnlyMemory<T
 
     #endregion
 
-    public bool IsCompatible(PIDType val, PKM pk)
+    public bool IsCompatible(PIDType type, PKM pk)
     {
         if (IsEReader)
             return true;
-        return val is PIDType.CXD;
+        return type is PIDType.CXD;
     }
 
     public PIDType GetSuggestedCorrelation()

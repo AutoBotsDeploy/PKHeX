@@ -7,13 +7,12 @@ namespace PKHeX.Core;
 /// Generation 7 Mystery Gift Template File (LGP/E)
 /// </summary>
 public sealed class WB7(byte[] Data)
-    : DataMysteryGift(Data), ILangNick, IAwakened, IRelearn, INature, ILangNicknamedTemplate, IRestrictVersion
+    : DataMysteryGift(Data), ILangNick, IAwakened, IRelearn, INature, ILangNicknamedTemplate, IMetLevel, IRestrictVersion
 {
-    public WB7() : this(new byte[SizeFull]) { }
+    public WB7() : this(new byte[Size]) { }
 
-    public const int Size = 0x108;
-    public const int SizeFull = 0x310;
-    private const int CardStart = SizeFull - Size;
+    public const int Size = 0x310;
+    private const int CardStart = 0x208;
     public override bool FatefulEncounter => true;
 
     public override byte Generation => 7;
@@ -498,9 +497,9 @@ public sealed class WB7(byte[] Data)
     {
         Span<int> finalIVs = stackalloc int[6];
         GetIVs(finalIVs);
-        var ivflag = finalIVs.Find(static iv => (byte)(iv - 0xFC) < 3);
+        var ivflag = finalIVs.IndexOfAny(0xFC, 0xFD, 0xFE);
         var rng = Util.Rand;
-        if (ivflag == default) // Random IVs
+        if (ivflag == -1) // Random IVs
         {
             for (int i = 0; i < finalIVs.Length; i++)
             {
@@ -510,7 +509,7 @@ public sealed class WB7(byte[] Data)
         }
         else // 1/2/3 perfect IVs
         {
-            int IVCount = ivflag - 0xFB;
+            int IVCount = finalIVs[ivflag] - 0xFB;
             do { finalIVs[rng.Next(6)] = 31; }
             while (finalIVs.Count(31) < IVCount);
             for (int i = 0; i < finalIVs.Length; i++)
@@ -580,7 +579,7 @@ public sealed class WB7(byte[] Data)
                 return false; // can't be traded away for unshiny
             }
 
-            if (pk is { IsEgg: true, IsNative: false })
+            if (pk is { IsEgg: true, Context: not EntityContext.Gen7b })
                 return false;
         }
         else

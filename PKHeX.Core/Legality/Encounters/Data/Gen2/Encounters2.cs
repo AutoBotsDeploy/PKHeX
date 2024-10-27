@@ -33,7 +33,7 @@ internal static class Encounters2
         new(109, 21, GSC) { Location = 036 }, // Koffing @ Rocket Hideout (Mahogany Town)
         new(100, 23, GSC) { Location = 036 }, // Voltorb @ Rocket Hideout (Mahogany Town)
         new(101, 23, GSC) { Location = 036 }, // Electrode @ Rocket Hideout (Mahogany Town)
-        new(143, 50, GSC) { Location = 061 }, // Snorlax @ Vermillion City
+        new(143, 50, GSC) { Location = 061 }, // Snorlax @ Vermilion City
 
         new(211, 05, GSC) { Location = 008 }, // Qwilfish Swarm @ Route 32 (Old Rod)
         new(211, 20, GSC) { Location = 008 }, // Qwilfish Swarm @ Route 32 (Good Rod)
@@ -80,7 +80,9 @@ internal static class Encounters2
     [
         new(245, 40, C) { Location = 023 }, // Suicune @ Tin Tower
 
-        new(147, 15, C) { Location = 042, Moves = new((int)Move.ExtremeSpeed, (int)Move.Wrap, (int)Move.ThunderWave, (int)Move.Twister) }, // Dratini ExtremeSpeed
+        // Dragon Master's Quiz Dratini @ Dragon's Den
+        new(147, 15, C) { Location = 042, Moves = new((int)Move.Wrap, (int)Move.ThunderWave, (int)Move.Twister, (int)Move.ExtremeSpeed) }, // Dratini ExtremeSpeed
+        new(147, 15, C) { Location = 042 }, // Dratini with regular moves
 
         new(249, 60, C) { Location = 031 }, // Lugia @ Whirl Islands
         new(250, 60, C) { Location = 023 }, // Ho-Oh @ Tin Tower

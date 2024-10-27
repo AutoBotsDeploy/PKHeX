@@ -131,7 +131,7 @@ public partial class PokePreview : Form
         display.Visible = true;
     }
 
-    public static Size MeasureSize(string text, Font font)
+    public static Size MeasureSize(ReadOnlySpan<char> text, Font font)
     {
         const TextFormatFlags flags = TextFormatFlags.LeftAndRightPadding | TextFormatFlags.VerticalCenter;
         return TextRenderer.MeasureText(text, font, new Size(), flags);
@@ -153,7 +153,7 @@ public partial class PokePreview : Form
             if (remaining[^1] == ')')
                 remaining = remaining[..^3]; // lop off gender
             var item = remaining.Trim();
-            if (item.Length > 0)
+            if (item.Length != 0)
                 sb.AppendLine($"Held Item: {item}");
         }
 

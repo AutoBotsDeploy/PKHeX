@@ -3,10 +3,11 @@ using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
 
-public sealed class MyStatus7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav, raw), IRegionOrigin
+public sealed class MyStatus7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav, raw), IRegionOrigin, IGameSync
 {
     public const int GameSyncIDSize = 16; // 64 bits
     public const int NexUniqueIDSize = 32; // 128 bits
+    int IGameSync.GameSyncIDSize => GameSyncIDSize;
 
     public uint ID32
     {
@@ -44,9 +45,9 @@ public sealed class MyStatus7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav,
         set
         {
             ArgumentOutOfRangeException.ThrowIfNotEqual(value.Length, GameSyncIDSize);
-
-            var data = Util.GetBytesFromHexString(value);
-            SAV.SetData(Data[0x10..], data);
+            Span<byte> dest = Data.Slice(0x10, GameSyncIDSize / 2);
+            dest.Clear();
+            Util.GetBytesFromHexString(value, dest);
         }
     }
 
@@ -56,9 +57,9 @@ public sealed class MyStatus7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav,
         set
         {
             ArgumentOutOfRangeException.ThrowIfNotEqual(value.Length, NexUniqueIDSize);
-
-            var data = Util.GetBytesFromHexString(value);
-            SAV.SetData(Data[0x18..], data);
+            Span<byte> dest = Data.Slice(0x18, GameSyncIDSize / 2);
+            dest.Clear();
+            Util.GetBytesFromHexString(value, dest);
         }
     }
 
@@ -97,7 +98,7 @@ public sealed class MyStatus7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav,
     public string OT
     {
         get => SAV.GetString(OriginalTrainerTrash);
-        set => SAV.SetString(OriginalTrainerTrash, value, SAV.MaxStringLengthOT, StringConverterOption.ClearZero);
+        set => SAV.SetString(OriginalTrainerTrash, value, SAV.MaxStringLengthTrainer, StringConverterOption.ClearZero);
     }
 
     public int DressUpSkinColor

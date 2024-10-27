@@ -30,6 +30,8 @@ public partial class SAV_FolderList : Form
 
         dgDataRecent.ContextMenuStrip = GetContextMenu(dgDataRecent);
         dgDataBackup.ContextMenuStrip = GetContextMenu(dgDataBackup);
+        dgDataRecent.Sorted += (_, _) => GetFilterText(dgDataRecent);
+        dgDataBackup.Sorted += (_, _) => GetFilterText(dgDataBackup);
 
         var extra = Paths.Select(z => z.Path).Where(z => z != Main.BackupPath).Distinct();
         var backup = SaveFinder.GetSaveFiles(drives, false, [Main.BackupPath], false);
@@ -274,18 +276,49 @@ public partial class SAV_FolderList : Form
                 var sav = new SavePreview(next, Paths);
                 void Load() => LoadEntry(dgData, list, sav);
 
-                dgData.Invoke(Load);
+                dgData.BeginInvoke(Load);
                 ctr++;
                 if (ctr < 15 && ctr % 7 == 0)
-                    dgData.Invoke(RefreshResize);
+                    dgData.BeginInvoke(RefreshResize);
             }
-            dgData.Invoke(RefreshResize);
+            dgData.BeginInvoke(RefreshResize);
             enumerator.Dispose();
         });
 
-        dgData.Sorted += (_, _) => GetFilterText(dgData);
-
         return list;
+    }
+
+    public static void CleanBackups(string path, bool deleteNotSaves)
+    {
+        var files = Directory.GetFiles(path);
+        foreach (var file in files)
+        {
+            var fi = new FileInfo(file);
+            if (!SaveUtil.IsSizeValid(fi.Length) || SaveUtil.GetVariantSAV(file) is not { } sav)
+            {
+                if (deleteNotSaves)
+                    File.Delete(file);
+                continue;
+            }
+
+            var self = sav.Metadata.FilePath;
+            if (self is null)
+                continue; // shouldn't hit
+            var index = self.IndexOf(" [", StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+                continue;
+            var original = self[..index];
+            sav.Metadata.SetExtraInfo(original);
+
+            string backupName = sav.Metadata.GetBackupFileName(Main.BackupPath);
+            if (self == backupName)
+                continue;
+
+            if (File.Exists(backupName))
+                File.Delete(self);
+            else
+                File.Move(self, backupName);
+        }
     }
 
     private static void Refresh(DataGridView dgData)
@@ -338,14 +371,14 @@ public partial class SAV_FolderList : Form
         var cm = (CurrencyManager?)BindingContext?[dg.DataSource];
         cm?.SuspendBinding();
         int column = CB_FilterColumn.SelectedIndex - 1;
-        var text = TB_FilterTextContains.Text;
+        var text = TB_FilterTextContains.Text.AsSpan();
 
         for (int i = 0; i < dg.RowCount; i++)
             ToggleRowVisibility(dg, column, text, i);
         cm?.ResumeBinding();
     }
 
-    private static void ToggleRowVisibility(DataGridView dg, int column, string text, int rowIndex)
+    private static void ToggleRowVisibility(DataGridView dg, int column, ReadOnlySpan<char> text, int rowIndex)
     {
         var row = dg.Rows[rowIndex];
         if (text.Length == 0 || column < 0)
@@ -360,6 +393,6 @@ public partial class SAV_FolderList : Form
             row.Visible = false;
             return;
         }
-        row.Visible = value.Contains(text, StringComparison.CurrentCultureIgnoreCase); // case insensitive contains
+        row.Visible = value.AsSpan().Contains(text, StringComparison.CurrentCultureIgnoreCase); // case insensitive contains
     }
 }

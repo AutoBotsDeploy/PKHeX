@@ -25,7 +25,7 @@ public sealed class SCBlockMetadata
         BlockList = aType.GetAllPropertiesOfType<IDataIndirect>(accessor);
         ValueList = aType.GetAllConstantsOfType<uint>();
         AddExtraKeyNames(ValueList, extraKeyNames);
-        if (exclusions.Length > 0)
+        if (exclusions.Length != 0)
             ValueList = ValueList.Where(z => !exclusions.Any(z.Value.Contains)).ToDictionary();
         Accessor = accessor;
     }
@@ -35,7 +35,7 @@ public sealed class SCBlockMetadata
     /// </summary>
     public IEnumerable<ComboItem> GetSortedBlockKeyList() => Accessor.BlockInfo
         .Select((z, i) => new ComboItem(GetBlockHint(z, i), (int)z.Key))
-        .OrderBy(z => !(z.Text.Length != 0 && z.Text[0] == '*'))
+        .OrderBy(z => !z.Text.StartsWith('*'))
         .ThenBy(z => GetSortKey(z));
 
     /// <summary>
@@ -63,7 +63,7 @@ public sealed class SCBlockMetadata
     private static string GetSortKey(in ComboItem item)
     {
         var text = item.Text;
-        if (text.Length != 0 && text[0] == '*')
+        if (text.StartsWith('*'))
             return text;
         // key:X8, " - ", "####", " ", type
         return text[(8 + 3 + 4 + 1)..];
@@ -95,7 +95,8 @@ public sealed class SCBlockMetadata
         // See if we have a Block object for this block
         if (block.Data.Length != 0)
         {
-            var obj = BlockList.FirstOrDefault(z => z.Key.Equals(block.Data));
+            static bool SameBackingBuffer(IDataIndirect d, ReadOnlyMemory<byte> data) => d.Equals(data);
+            var obj = BlockList.FirstOrDefault(z => SameBackingBuffer(z.Value, block.Data));
             if (obj is not (null, null))
             {
                 saveBlock = obj.Value;

@@ -71,7 +71,7 @@ public sealed class SAV4BR : SaveFile, IBoxDetailName
     }
 
     // Configuration
-    protected override SAV4BR CloneInternal() => new(Write());
+    protected override SAV4BR CloneInternal() => new(GetFinalData());
 
     public readonly IReadOnlyList<string> SaveNames = new string[SAVE_COUNT];
 
@@ -107,7 +107,7 @@ public sealed class SAV4BR : SaveFile, IBoxDetailName
     public override int MaxEV => EffortValues.Max255;
     public override byte Generation => 4;
     public override EntityContext Context => EntityContext.Gen4;
-    public override int MaxStringLengthOT => 7;
+    public override int MaxStringLengthTrainer => 7;
     public override int MaxStringLengthNickname => 10;
     public override int MaxMoney => 999999;
     public override int Language => (int)LanguageID.English; // prevent KOR from inhabiting
@@ -367,7 +367,10 @@ public sealed class SAV4BR : SaveFile, IBoxDetailName
         }
     }
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter4GC.GetStringUnicode(data);
-
-    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option) => StringConverter4GC.SetStringUnicode(value, destBuffer, maxLength, option);
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter4GC.GetStringUnicode(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter4GC.LoadStringUnicode(data, destBuffer);
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+        => StringConverter4GC.SetStringUnicode(value, destBuffer, maxLength, option);
 }

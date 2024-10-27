@@ -27,6 +27,11 @@ public sealed class Misc7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav, raw
         }
     }
 
+    // 0x00C: 0x100 bytes of bitflags
+    // 0x10C: u32
+    // 0x110: u32
+    // 0x114: 8 bytes of bitflags
+
     public uint BP
     {
         get => ReadUInt32LittleEndian(Data[0x11C..]);
@@ -38,17 +43,9 @@ public sealed class Misc7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav, raw
         }
     }
 
-    public int Vivillon
-    {
-        get => Data[0x130] & 0x1F;
-        set => Data[0x130] = (byte)((Data[0x130] & ~0x1F) | (value & 0x1F));
-    }
-
-    public uint StarterEncryptionConstant
-    {
-        get => ReadUInt32LittleEndian(Data[0x148..]);
-        set => WriteUInt32LittleEndian(Data[0x148..], value);
-    }
+    // 0x120: byte
+    // 0x121: byte
+    // 0x122: byte
 
     public int DaysFromRefreshed
     {
@@ -56,17 +53,37 @@ public sealed class Misc7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav, raw
         set => Data[0x123] = (byte)value;
     }
 
+    public int Vivillon
+    {
+        get => Data[0x130] & 0x1F;
+        set => Data[0x130] = (byte)((Data[0x130] & ~0x1F) | (value & 0x1F));
+    }
+
+    // 0x134: byte
+
+    public bool IsWormholeShiny
+    {
+        get => Data[0x135] == 1;
+        set => Data[0x135] = (byte)(value ? 1 : 0);
+    }
+
+    // 0x136-0x137: alignment
+
     public int GetSurfScore(int recordID)
     {
-        if ((uint)recordID >= 4)
-            recordID = 0;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)recordID, 3u);
         return ReadInt32LittleEndian(Data[(0x138 + (4 * recordID))..]);
     }
 
     public void SetSurfScore(int recordID, int score)
     {
-        if ((uint)recordID >= 4)
-            recordID = 0;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)recordID, 3u);
         WriteInt32LittleEndian(Data[(0x138 + (4 * recordID))..], score);
+    }
+
+    public uint StarterEncryptionConstant
+    {
+        get => ReadUInt32LittleEndian(Data[0x148..]);
+        set => WriteUInt32LittleEndian(Data[0x148..], value);
     }
 }

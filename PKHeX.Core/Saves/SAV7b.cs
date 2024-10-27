@@ -80,7 +80,7 @@ public sealed class SAV7b : SAV_BEEF, ISaveBlock7b, IGameSync, IMysteryGiftStora
 
     public override int MaxIV => 31;
     public override int MaxEV => EffortValues.Max252;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
 
     public override bool HasParty => false; // handled via team slots
@@ -112,7 +112,7 @@ public sealed class SAV7b : SAV_BEEF, ISaveBlock7b, IGameSync, IMysteryGiftStora
     public override int PartyCount { get => Blocks.Storage.PartyCount; protected set => Blocks.Storage.PartyCount = value; }
     protected override void SetPartyValues(PKM pk, bool isParty) => base.SetPartyValues(pk, true);
 
-    public override StorageSlotSource GetSlotFlags(int index)
+    public override StorageSlotSource GetBoxSlotFlags(int index)
     {
         var result = StorageSlotSource.None;
         var header = Blocks.Storage.PokeListInfo;
@@ -124,12 +124,12 @@ public sealed class SAV7b : SAV_BEEF, ISaveBlock7b, IGameSync, IMysteryGiftStora
         return result;
     }
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter8.GetString(data);
-
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter8.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter8.LoadString(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter8.SetString(destBuffer, value, maxLength);
-    }
+        => StringConverter8.SetString(destBuffer, value, maxLength);
 
     public override bool IsVersionValid() => Version is GameVersion.GP or GameVersion.GE;
 

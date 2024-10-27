@@ -23,7 +23,7 @@ public partial class SAV_Trainer : Form
                 TB_TRNick.Font = TB_OTName.Font;
         }
 
-        B_MaxCash.Click += (sender, e) => MT_Money.Text = "9,999,999";
+        B_MaxCash.Click += (_, _) => MT_Money.Text = "9,999,999";
 
         CB_Gender.Items.Clear();
         CB_Gender.Items.AddRange(Main.GenderSymbols.Take(2).ToArray()); // m/f depending on unicode selection
@@ -81,7 +81,7 @@ public partial class SAV_Trainer : Form
         CB_Region.InitializeBinding();
         Main.SetCountrySubRegion(CB_Country, "countries");
 
-        var names = Enum.GetNames<TrainerSprite6>();
+        var names = WinFormsTranslator.GetEnumTranslation<TrainerSprite6>(Main.CurrentLanguage);
         var values = Enum.GetValues<TrainerSprite6>();
         var max = SAV is not SAV6AO ? (int)TrainerSprite6.Trevor : names.Length;
         var data = new ComboItem[max];
@@ -192,6 +192,7 @@ public partial class SAV_Trainer : Form
     {
         SAV.Version = (GameVersion)(CB_Game.SelectedIndex + 0x18);
         SAV.Gender = (byte)CB_Gender.SelectedIndex;
+        SAV.Overworld.ResetPlayerModel();
 
         SAV.TID16 = (ushort)Util.ToUInt32(MT_TID.Text);
         SAV.SID16 = (ushort)Util.ToUInt32(MT_SID.Text);
@@ -278,7 +279,7 @@ public partial class SAV_Trainer : Form
         if (ModifierKeys != Keys.Control)
             return;
 
-        var d = new TrashEditor(tb, SAV);
+        var d = new TrashEditor(tb, SAV, SAV.Generation);
         d.ShowDialog();
         tb.Text = d.FinalString;
     }

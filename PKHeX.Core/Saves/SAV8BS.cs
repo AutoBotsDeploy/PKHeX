@@ -59,7 +59,7 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
         // 0x96340 - _DENDOU_SAVEDATA; DENDOU_RECORD[30], POKEMON_DATA_INSIDE[6], ushort[4] ?
         // BadgeSaveData; byte[8]
         // BoukenNote; byte[24]
-        // TV_DATA (int[48], TV_STR_DATA[42]), (int[37], bool[37])*2, (int[8], int[8]), TV_STR_DATA[10]; 144 128bit zeroed (900 bytes?)? 
+        // TV_DATA (int[48], TV_STR_DATA[42]), (int[37], bool[37])*2, (int[8], int[8]), TV_STR_DATA[10]; 144 128bit zeroed (900 bytes?)?
         UgSaveData = new UgSaveData8b(this, Raw.Slice(0x9A89C, 0x27A0));
         // 0x9D03C - GMS_DATA // size: 0x31304, (GMS_POINT_DATA[650], ushort, ushort, byte)?; substructure GMS_POINT_HISTORY_DATA[5]
         // 0xCE340 - PLAYER_NETWORK_DATA; bcatFlagArray byte[1300]
@@ -119,7 +119,7 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
     public override byte Generation => 8;
     public override EntityContext Context => EntityContext.Gen8b;
     public override PersonalTable8BDSP Personal => PersonalTable.BDSP;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
     public override ushort MaxMoveID => Legal.MaxMoveID_8b;
     public override ushort MaxSpeciesID => Legal.MaxSpeciesID_8b;
@@ -156,7 +156,7 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
             BoxLayout.LoadBattleTeams();
     }
 
-    public override StorageSlotSource GetSlotFlags(int index)
+    public override StorageSlotSource GetBoxSlotFlags(int index)
     {
         int team = Array.IndexOf(TeamSlots, index);
         if (team < 0)
@@ -171,29 +171,35 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
 
     #region Checksums
 
-    private const int HashLength = 0x10;
+    private const int HashLength = MD5.HashSizeInBytes;
     private const int HashOffset = SaveUtil.SIZE_G8BDSP - HashLength;
     private Span<byte> CurrentHash => Data.AsSpan(HashOffset, HashLength);
-    private static void ComputeHash(ReadOnlySpan<byte> data, Span<byte> dest)
+
+    // Checksum is stored in the middle of the save file, and is zeroed before computing.
+    protected override void SetChecksums()
     {
-        using var h = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-        h.AppendData(data[..HashOffset]);
-        Span<byte> zeroes = stackalloc byte[HashLength]; // Hash is zeroed prior to computing over the payload. Treat it as zero.
-        h.AppendData(zeroes);
-        h.AppendData(data[(HashOffset + HashLength)..]);
-        h.TryGetCurrentHash(dest, out _);
+        var current = CurrentHash;
+        current.Clear();
+        RuntimeCryptographyProvider.Md5.HashData(Data, current);
     }
 
-    protected override void SetChecksums() => ComputeHash(Data, CurrentHash);
-    public override bool ChecksumsValid => GetIsHashValid(Data, CurrentHash);
+    public override bool ChecksumsValid
+    {
+        get
+        {
+            // Cache existing checksum as computing will update it.
+            var current = CurrentHash;
+            Span<byte> exist = stackalloc byte[HashLength];
+            current.CopyTo(exist);
+            SetChecksums();
+            var result = current.SequenceEqual(exist);
+            if (!result)
+                exist.CopyTo(current); // restore original bad checksum
+            return result;
+        }
+    }
+
     public override string ChecksumInfo => !ChecksumsValid ? "MD5 Hash Invalid" : string.Empty;
-
-    public static bool GetIsHashValid(ReadOnlySpan<byte> data, ReadOnlySpan<byte> currentHash)
-    {
-        Span<byte> computed = stackalloc byte[HashLength];
-        ComputeHash(data, computed);
-        return computed.SequenceEqual(currentHash);
-    }
 
     #endregion
 
@@ -244,12 +250,12 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
 
     public override bool IsVersionValid() => Version is GameVersion.BD or GameVersion.SP;
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter8.GetString(data);
-
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter8.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter8.LoadString(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter8.SetString(destBuffer, value, maxLength, option);
-    }
+        => StringConverter8.SetString(destBuffer, value, maxLength, option);
 
     // Player Information
     public override uint ID32 { get => MyStatus.ID32; set => MyStatus.ID32 = value; }
@@ -283,7 +289,7 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
     public string Rival
     {
         get => GetString(Data.AsSpan(0x55F4, 0x1A));
-        set => SetString(Data.AsSpan(0x55F4, 0x1A), value, MaxStringLengthOT, StringConverterOption.ClearZero);
+        set => SetString(Data.AsSpan(0x55F4, 0x1A), value, MaxStringLengthTrainer, StringConverterOption.ClearZero);
     }
 
     public short ZoneID // map

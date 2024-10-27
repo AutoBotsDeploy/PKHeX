@@ -68,7 +68,6 @@ public sealed class LevelVerifier : Verifier
 
         return gift switch
         {
-            WC3 wc3 when wc3.MetLevel == pk.MetLevel || wc3.IsEgg => true,
             WC7 wc7 when wc7.MetLevel == pk.MetLevel => true,
             PGT { IsManaphyEgg: true } when pk.MetLevel == 0 => true,
             _ => false,
@@ -123,7 +122,7 @@ public sealed class LevelVerifier : Verifier
         // Context check is only applicable to Gen1/2; transferring to Gen2 is a trade.
         // Stadium 2 can transfer across game/generation boundaries without initiating a trade.
         // Ignore this check if the environment's loaded trainer is not from Gen1/2 or is from GB Era.
-        if (ParseSettings.ActiveTrainer.Generation >= 3 || ParseSettings.AllowGBStadium2)
+        if (ParseSettings.AllowGBStadium2 || ParseSettings.ActiveTrainer is { Generation: not (1 or 2) })
             return false;
 
         var moves = data.Info.Moves;
@@ -135,6 +134,9 @@ public sealed class LevelVerifier : Verifier
             return true; // traded to Gen2 for special moves
         if (pk.Format != 1)
             return true; // traded to Gen2 (current state)
-        return !ParseSettings.IsFromActiveTrainer(pk); // not with OT
+
+        if (ParseSettings.ActiveTrainer is { } tr)
+            return !tr.IsFromTrainer(pk); // not with OT
+        return false;
     }
 }

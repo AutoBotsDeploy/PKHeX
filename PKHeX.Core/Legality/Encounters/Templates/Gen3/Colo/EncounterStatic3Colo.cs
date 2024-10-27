@@ -71,6 +71,9 @@ public sealed record EncounterStatic3Colo(ushort Species, byte Level)
 
     private void SetPINGA(CK3 pk, EncounterCriteria criteria, PersonalInfo3 pi)
     {
+        if (MethodCXD.SetFromTrainerIDStarter(pk, criteria, pi, pk.TID16, pk.SID16))
+            return;
+
         var gender = criteria.GetGender(Gender, pi);
         var nature = criteria.GetNature();
         var ability = criteria.GetAbilityFromNumber(Ability);
@@ -139,11 +142,11 @@ public sealed record EncounterStatic3Colo(ushort Species, byte Level)
     }
     #endregion
 
-    public bool IsCompatible(PIDType val, PKM pk)
+    public bool IsCompatible(PIDType type, PKM pk)
     {
         if (IsColoStarter)
-            return val is PIDType.CXD_ColoStarter;
-        return val is PIDType.CXD;
+            return type is PIDType.CXD_ColoStarter;
+        return type is PIDType.CXD;
     }
 
     public PIDType GetSuggestedCorrelation() => PIDType.CXD;

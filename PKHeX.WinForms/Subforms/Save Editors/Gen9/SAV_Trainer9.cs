@@ -27,9 +27,9 @@ public partial class SAV_Trainer9 : Form
             TB_OTName.Font = FontUtil.GetPKXFont();
         }
 
-        B_MaxCash.Click += (sender, e) => MT_Money.Text = SAV.MaxMoney.ToString();
-        B_MaxLP.Click += (sender, e) => MT_LP.Text = SAV.MaxMoney.ToString();
-        B_MaxBP.Click += (sender, e) => MT_BP.Text = SAV.MaxMoney.ToString();
+        B_MaxCash.Click += (_, _) => MT_Money.Text = SAV.MaxMoney.ToString();
+        B_MaxLP.Click += (_, _) => MT_LP.Text = SAV.MaxMoney.ToString();
+        B_MaxBP.Click += (_, _) => MT_BP.Text = SAV.MaxMoney.ToString();
 
         var games = GameInfo.Strings.gamelist;
         CB_Game.Items.Clear();
@@ -180,7 +180,7 @@ public partial class SAV_Trainer9 : Form
         if (ModifierKeys != Keys.Control)
             return;
 
-        var d = new TrashEditor(tb, SAV);
+        var d = new TrashEditor(tb, SAV, SAV.Generation);
         d.ShowDialog();
         tb.Text = d.FinalString;
     }

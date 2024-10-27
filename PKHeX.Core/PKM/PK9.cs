@@ -11,12 +11,7 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
 {
     public override ReadOnlySpan<ushort> ExtraBytes =>
     [
-        0x17,
-        0x1A, 0x1B,
-        0x23,
-        0x33,
-        0x3E, 0x3F,
-        0x90, 0x91, 0x92, 0x93, // Status condition
+        0x17, 0x1A, 0x1B, 0x23, 0x33, 0x3E, 0x3F,
         0x96, 0x97, 0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
         0xC5,
         0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF,
@@ -26,14 +21,12 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
 
     public override PersonalInfo9SV PersonalInfo => PersonalTable.SV.GetFormEntry(Species, Form);
     public IPermitRecord Permit => PersonalInfo;
-    public override bool IsNative => SV;
     public override EntityContext Context => EntityContext.Gen9;
 
     public PK9() : base(PokeCrypto.SIZE_9PARTY)
     {
-        // 00 would make it show Kalos Champion :)
-        AffixedRibbon = -1;
-        TeraTypeOverride = (MoveType)19;
+        AffixedRibbon = PKHeX.Core.AffixedRibbon.None;
+        TeraTypeOverride = (MoveType)TeraTypeUtil.OverrideNone;
     }
 
     public PK9(byte[] data) : base(DecryptParty(data)) { }
@@ -66,11 +59,13 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
     public override Span<byte> NicknameTrash => Data.AsSpan(0x58, 26);
     public override Span<byte> HandlingTrainerTrash => Data.AsSpan(0xA8, 26);
     public override Span<byte> OriginalTrainerTrash => Data.AsSpan(0xF8, 26);
+    public override int TrashCharCountTrainer => 13;
+    public override int TrashCharCountNickname => 13;
 
     // Maximums
     public override int MaxIV => 31;
     public override int MaxEV => EffortValues.Max252;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
 
     public override uint PSV => ((PID >> 16) ^ (PID & 0xFFFF)) >> 4;
@@ -565,7 +560,10 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
             return false;
         if (tr.Language != Language)
             return false;
-        return tr.OT == OriginalTrainerName;
+
+        Span<char> ot = stackalloc char[MaxStringLengthTrainer];
+        int len = LoadString(OriginalTrainerTrash, ot);
+        return ot[..len].SequenceEqual(tr.OT);
     }
 
     public void UpdateHandler(ITrainerInfo tr)
@@ -605,6 +603,9 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
         HandlingTrainerGender = 0;
         HandlingTrainerLanguage = 0;
 
+        MetDate = null;
+        MetLocation = 0;
+        Nickname = SpeciesName.GetSpeciesNameGeneration(Species, tr.Language, 9);
         Nickname = SpeciesName.GetEggName(tr.Language, 9);
         OriginalTrainerName = tr.OT;
         CurrentHandler = 0;
@@ -660,19 +661,7 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
         return true;
     }
 
-    private void TradeHT(ITrainerInfo tr)
-    {
-        if (HandlingTrainerName != tr.OT)
-        {
-            HandlingTrainerFriendship = 50;
-            HandlingTrainerName = tr.OT;
-        }
-        CurrentHandler = 1;
-        HandlingTrainerGender = tr.Gender;
-        if (HandlingTrainerLanguage == 0)
-            this.ClearMemoriesHT();
-        HandlingTrainerLanguage = (byte)tr.Language;
-    }
+    private void TradeHT(ITrainerInfo tr) => PKH.UpdateHandler(this, tr);
 
     // Maximums
     public override ushort MaxMoveID => Legal.MaxMoveID_9;
@@ -681,4 +670,16 @@ public sealed class PK9 : PKM, ISanityChecksum, ITeraType, ITechRecord, IObedien
     public override int MaxItemID => Legal.MaxItemID_9;
     public override int MaxBallID => Legal.MaxBallID_9;
     public override GameVersion MaxGameID => Legal.MaxGameID_HOME;
+
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter8.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter8.LoadString(data, destBuffer);
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+        => StringConverter8.SetString(destBuffer, value, maxLength, option);
+    public override int GetStringTerminatorIndex(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetTerminatorIndex(data);
+    public override int GetStringLength(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetStringLength(data);
+    public override int GetBytesPerChar() => 2;
 }

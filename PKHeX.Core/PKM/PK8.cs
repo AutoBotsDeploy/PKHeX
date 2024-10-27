@@ -28,10 +28,9 @@ public sealed class PK8 : G8PKM, IHandlerUpdate
 
     public override PersonalInfo8SWSH PersonalInfo => PersonalTable.SWSH.GetFormEntry(Species, Form);
     public override IPermitRecord Permit => PersonalInfo;
-    public override bool IsNative => SWSH;
     public override EntityContext Context => EntityContext.Gen8;
 
-    public PK8() => AffixedRibbon = -1; // 00 would make it show Kalos Champion :)
+    public PK8() => AffixedRibbon = Core.AffixedRibbon.None;
     public PK8(byte[] data) : base(data) { }
     public override PK8 Clone() => new((byte[])Data.Clone());
 
@@ -44,7 +43,10 @@ public sealed class PK8 : G8PKM, IHandlerUpdate
             return false;
         if (tr.Gender != OriginalTrainerGender)
             return false;
-        return tr.OT == OriginalTrainerName;
+
+        Span<char> ot = stackalloc char[MaxStringLengthTrainer];
+        int len = LoadString(OriginalTrainerTrash, ot);
+        return ot[..len].SequenceEqual(tr.OT);
     }
 
     public void UpdateHandler(ITrainerInfo tr)
@@ -104,18 +106,7 @@ public sealed class PK8 : G8PKM, IHandlerUpdate
         return true;
     }
 
-    private void TradeHT(ITrainerInfo tr)
-    {
-        if (HandlingTrainerName != tr.OT)
-        {
-            HandlingTrainerFriendship = 50;
-            HandlingTrainerName = tr.OT;
-        }
-        CurrentHandler = 1;
-        HandlingTrainerGender = tr.Gender;
-        HandlingTrainerLanguage = (byte)tr.Language;
-        this.SetTradeMemoryHT8();
-    }
+    private void TradeHT(ITrainerInfo tr) => PKH.UpdateHandler(this, tr);
 
     // Maximums
     public override ushort MaxMoveID => Legal.MaxMoveID_8;
@@ -128,5 +119,17 @@ public sealed class PK8 : G8PKM, IHandlerUpdate
     public override bool SV => MetLocation is LocationsHOME.SWSL or LocationsHOME.SHVL;
     public override bool BDSP => MetLocation is LocationsHOME.SWBD or LocationsHOME.SHSP;
     public override bool LA => MetLocation is LocationsHOME.SWLA;
-    public override bool HasOriginalMetLocation => base.HasOriginalMetLocation && !(BDSP || LA);
+    public override bool HasOriginalMetLocation => base.HasOriginalMetLocation && !IsSideTransfer;
+
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter8.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter8.LoadString(data, destBuffer);
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+        => StringConverter8.SetString(destBuffer, value, maxLength, option);
+    public override int GetStringTerminatorIndex(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetTerminatorIndex(data);
+    public override int GetStringLength(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetStringLength(data);
+    public override int GetBytesPerChar() => 2;
 }

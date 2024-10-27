@@ -13,6 +13,9 @@ public interface ISaveBlock5BW
     Daycare5 Daycare { get; }
     BoxLayout5 BoxLayout { get; }
     PlayerData5 PlayerData { get; }
+    UnityTower5 UnityTower { get; }
+    SkinInfo5 SkinInfo { get; }
+    BattleSubwayPlay5 BattleSubwayPlay { get; }
     BattleSubway5 BattleSubway { get; }
     Entralink5 Entralink { get; }
     Musical5 Musical { get; }
@@ -22,4 +25,5 @@ public interface ISaveBlock5BW
     GlobalLink5 GlobalLink { get; }
     GTS5 GTS { get; }
     AdventureInfo5 AdventureInfo { get; }
+    Record5 Records { get; }
 }

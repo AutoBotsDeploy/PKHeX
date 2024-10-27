@@ -29,8 +29,10 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
     // Extra data is always at the same sector, while the main sectors rotate sectors within their region (on each successive save?).
 
     private const int SIZE_SECTOR = 0x1000;
-    private const int SIZE_SECTOR_USED = 0xF80;
+    public const int SIZE_SECTOR_USED = 0xF80;
     private const int COUNT_MAIN = 14; // sectors worth of data
+  //private const int COUNT_BACKUP = COUNT_MAIN; // sectors worth of data
+    private const int COUNT_EXTRA = 4; // sectors worth of data
     private const int SIZE_MAIN = COUNT_MAIN * SIZE_SECTOR;
 
     // There's no harm having buffers larger than their actual size (per format).
@@ -40,7 +42,7 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
     public readonly byte[] Storage = new byte[9 * SIZE_SECTOR_USED]; //  [0x83D0]
 
     private readonly int ActiveSlot;
-    public sealed override int Language { get => Japanese ? (int)LanguageID.Japanese : (int)LanguageID.English; set { } }
+    public sealed override int Language { get; set; }
 
     protected SAV3(bool japanese) => Japanese = japanese;
 
@@ -191,7 +193,7 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
     public sealed override int MaxEV => EffortValues.Max255;
     public sealed override byte Generation => 3;
     public sealed override EntityContext Context => EntityContext.Gen3;
-    public sealed override int MaxStringLengthOT => 7;
+    public sealed override int MaxStringLengthTrainer => 7;
     public sealed override int MaxStringLengthNickname => 10;
     public sealed override int MaxMoney => 999999;
 
@@ -227,9 +229,8 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
         if (Data.Length < SaveUtil.SIZE_G3RAW) // don't update HoF for half-sizes
             return;
 
-        // Hall of Fame Checksums
-        SetSectoryValidExtra(0x1C000);
-        SetSectoryValidExtra(0x1D000);
+        for (int i = 0; i < COUNT_EXTRA; i++)
+            SetSectorValidExtra(0x1C000 + (i * SIZE_SECTOR));
     }
 
     public sealed override bool ChecksumsValid
@@ -245,17 +246,21 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
             if (Data.Length < SaveUtil.SIZE_G3RAW) // don't check HoF for half-sizes
                 return true;
 
-            if (!IsSectorValidExtra(0x1C000))
-                return false;
-            if (!IsSectorValidExtra(0x1D000))
-                return false;
+            for (int i = 0; i < COUNT_EXTRA; i++)
+            {
+                if (!IsSectorValidExtra(0x1C000 + (i * SIZE_SECTOR)))
+                    return false;
+            }
+
             return true;
         }
     }
 
-    private void SetSectoryValidExtra(int offset)
+    private void SetSectorValidExtra(int offset)
     {
         var sector = Data.AsSpan(offset, SIZE_SECTOR);
+        if (IsSectorUninitialized(sector))
+            return;
         var expect = Checksums.CheckSum32(sector[..SIZE_SECTOR_USED]);
         WriteUInt16LittleEndian(sector[0xFF4..], expect);
     }
@@ -263,10 +268,15 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
     private bool IsSectorValidExtra(int offset)
     {
         var sector = Data.AsSpan(offset, SIZE_SECTOR);
+        if (IsSectorUninitialized(sector))
+            return true;
         var expect = Checksums.CheckSum32(sector[..SIZE_SECTOR_USED]);
         var actual = ReadUInt16LittleEndian(sector[0xFF4..]);
         return expect == actual;
     }
+
+    private static bool IsSectorUninitialized(ReadOnlySpan<byte> sector) =>
+        sector.IndexOfAnyExcept<byte>(0, 0xFF) == -1;
 
     private bool IsSectorValid(int sectorIndex)
     {
@@ -295,6 +305,10 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
                     list.Add("HoF first sector invalid.");
                 if (!IsSectorValidExtra(0x1D000))
                     list.Add("HoF second sector invalid.");
+                if (!IsSectorValidExtra(0x1E000))
+                    list.Add("e-Reader data invalid.");
+                if (!IsSectorValidExtra(0x1F000))
+                    list.Add("Final extra data invalid.");
             }
             return list.Count != 0 ? string.Join(Environment.NewLine, list) : "Checksums are valid.";
         }
@@ -324,7 +338,7 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
         get => GetString(OriginalTrainerTrash);
         set
         {
-            int len = Japanese ? 5 : MaxStringLengthOT;
+            int len = Japanese ? 5 : MaxStringLengthTrainer;
             SetString(OriginalTrainerTrash[..len], value, len, StringConverterOption.ClearFF); // match the game-init FF terminating pattern
         }
     }
@@ -600,12 +614,12 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
     public abstract bool NationalDex { get; set; }
     #endregion
 
-    public sealed override string GetString(ReadOnlySpan<byte> data) => StringConverter3.GetString(data, Japanese);
-
+    public sealed override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter3.GetString(data, Japanese);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter3.LoadString(data, destBuffer, Japanese);
     public sealed override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter3.SetString(destBuffer, value, maxLength, Japanese, option);
-    }
+        => StringConverter3.SetString(destBuffer, value, maxLength, Japanese, option);
 
     protected abstract int MailOffset { get; }
     public int GetMailOffset(int index) => (index * Mail3.SIZE) + MailOffset;
@@ -614,7 +628,7 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
     {
         var ofs = GetMailOffset(mailIndex);
         var data = Large.AsSpan(ofs, Mail3.SIZE).ToArray();
-        return new Mail3(data, ofs, Japanese);
+        return new Mail3(data, ofs);
     }
 
     #region eBerry
@@ -629,23 +643,38 @@ public abstract class SAV3 : SaveFile, ILangDeviantSave, IEventFlag37, IBoxDetai
 
     public abstract Gen3MysteryData MysteryData { get; set; }
 
+    /// <summary>
+    /// Hall of Fame data is split across two sectors.
+    /// </summary>
+    /// <returns>New object containing both sectors merged together.</returns>
     public byte[] GetHallOfFameData()
     {
-        // HoF Data is split across two sectors
-        byte[] data = new byte[SIZE_SECTOR_USED * 2];
-        Data.AsSpan(0x1C000, SIZE_SECTOR_USED).CopyTo(data.AsSpan(0               , SIZE_SECTOR_USED));
-        Data.AsSpan(0x1D000, SIZE_SECTOR_USED).CopyTo(data.AsSpan(SIZE_SECTOR_USED, SIZE_SECTOR_USED));
-        return data;
+        Span<byte> savedata = Data;
+        var sector1 = savedata.Slice(0x1C000, SIZE_SECTOR_USED);
+        var sector2 = savedata.Slice(0x1D000, SIZE_SECTOR_USED);
+        return [..sector1, ..sector2];
     }
 
+    /// <summary>
+    /// Unmerges the two sectors of Hall of Fame data.
+    /// </summary>
     public void SetHallOfFameData(ReadOnlySpan<byte> value)
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(value.Length, SIZE_SECTOR_USED * 2);
-        // HoF Data is split across two sav sectors
         Span<byte> savedata = Data;
-        value[..SIZE_SECTOR_USED].CopyTo(savedata[0x1C000..]);
-        value.Slice(SIZE_SECTOR_USED, SIZE_SECTOR_USED).CopyTo(savedata[0x1D000..]);
+        var sector1 = savedata.Slice(0x1C000, SIZE_SECTOR_USED);
+        var sector2 = savedata.Slice(0x1D000, SIZE_SECTOR_USED);
+        value[..SIZE_SECTOR_USED].CopyTo(sector1);
+        value[SIZE_SECTOR_USED..].CopyTo(sector2);
     }
+
+    /// <summary>
+    /// Only used by Japanese Emerald games.
+    /// </summary>
+    public Memory<byte> GetEReaderData() => Data.AsMemory(0x1E000, SIZE_SECTOR_USED);
+
+    /// <summary> Only used in Emerald. </summary>
+    public Memory<byte> GetFinalExternalData() => Data.AsMemory(0x1F000, SIZE_SECTOR_USED);
 
     public bool IsCorruptPokedexFF() => MemoryMarshal.Read<ulong>(Small.AsSpan(0xAC)) == ulong.MaxValue;
 

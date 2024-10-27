@@ -26,7 +26,7 @@ public abstract class SAV6 : SAV_BEEF, ITrainerStatRecord, ISaveBlock6Core, IReg
     public sealed override int MaxEV => EffortValues.Max252;
     public sealed override byte Generation => 6;
     public sealed override EntityContext Context => EntityContext.Gen6;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
 
     public override ushort MaxSpeciesID => Legal.MaxSpeciesID_6;
@@ -138,12 +138,12 @@ public abstract class SAV6 : SAV_BEEF, ITrainerStatRecord, ISaveBlock6Core, IReg
         protected set => Data[Party + (6 * SIZE_PARTY)] = (byte)value;
     }
 
-    public sealed override string GetString(ReadOnlySpan<byte> data) => StringConverter6.GetString(data);
-
+    public sealed override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter6.GetString(data);
+    public sealed override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter6.LoadString(data, destBuffer);
     public sealed override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter6.SetString(destBuffer, value, maxLength, option);
-    }
+        => StringConverter6.SetString(destBuffer, value, maxLength, Language, option);
 
     public int GetRecord(int recordID) => Records.GetRecord(recordID);
     public int GetRecordOffset(int recordID) => Records.GetRecordOffset(recordID);
@@ -155,6 +155,7 @@ public abstract class SAV6 : SAV_BEEF, ITrainerStatRecord, ISaveBlock6Core, IReg
     public abstract GameTime6 GameTime { get; }
     public abstract Situation6 Situation { get; }
     public abstract PlayTime6 Played { get; }
+    public abstract FieldMoveModelSave6 Overworld { get; }
     public abstract MyStatus6 Status { get; }
     public abstract RecordBlock6 Records { get; }
     public abstract EventWork6 EventWork { get; }

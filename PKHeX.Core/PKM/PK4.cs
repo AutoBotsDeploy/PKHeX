@@ -95,7 +95,7 @@ public sealed class PK4 : G4PKM
     public override bool RIB3_6 { get => (RIB3 & (1 << 6)) == 1 << 6; set => RIB3 = (byte)((RIB3 & ~(1 << 6)) | (value ? 1 << 6 : 0)); } // Unused
     public override bool RIB3_7 { get => (RIB3 & (1 << 7)) == 1 << 7; set => RIB3 = (byte)((RIB3 & ~(1 << 7)) | (value ? 1 << 7 : 0)); } // Unused
 
-    public override int RibbonCount => BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x30)) & 0b00001111_11111111__11111111_11111111)
+    public override int RibbonCount => BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x24)) & 0b00001111_11111111__11111111_11111111)
                                      + BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x3C)))
                                      + BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x60)) & 0b00000000_00001111__11111111_11111111);
     #endregion
@@ -183,7 +183,12 @@ public sealed class PK4 : G4PKM
     public override string Nickname
     {
         get => StringConverter4.GetString(NicknameTrash);
-        set => StringConverter4.SetString(NicknameTrash, value, 10, StringConverterOption.None);
+        set
+        {
+            var language = Language;
+            CheckKoreanNidoranDPPt(value, ref language);
+            StringConverter4.SetString(NicknameTrash, value, 10, language, StringConverterOption.None);
+        }
     }
 
     // 0x5E unused
@@ -231,7 +236,7 @@ public sealed class PK4 : G4PKM
     public override string OriginalTrainerName
     {
         get => StringConverter4.GetString(OriginalTrainerTrash);
-        set => StringConverter4.SetString(OriginalTrainerTrash, value, 7, StringConverterOption.None);
+        set => StringConverter4.SetString(OriginalTrainerTrash, value, 7, Language, StringConverterOption.None);
     }
 
     public override byte EggYear { get => Data[0x78]; set => Data[0x78] = value; }
@@ -298,9 +303,9 @@ public sealed class PK4 : G4PKM
 
     public RK4 ConvertToRK4()
     {
-        var data = new byte[PokeCrypto.SIZE_4STORED];
-        Data.AsSpan(0, PokeCrypto.SIZE_4RSTORED).CopyTo(data);
-        var rk4 = new RK4(data) { OwnershipType = RanchOwnershipType.Hayley };
+        var rk4 = new RK4 { OwnershipType = RanchOwnershipType.Hayley };
+        var stored = Data.AsSpan(0, PokeCrypto.SIZE_4STORED);
+        stored.CopyTo(rk4.Data);
 
         rk4.RefreshChecksum();
         return rk4;
@@ -308,17 +313,17 @@ public sealed class PK4 : G4PKM
 
     public PK5 ConvertToPK5()
     {
-        // Double Check Location Data to see if we're already a PK5
+        var pk5 = new PK5();
+        var stored = Data.AsSpan(0, PokeCrypto.SIZE_5PARTY);
+        stored.CopyTo(pk5.Data);
+        // Double Check Location Data to see if we were originally a PK5, no need to adjust.
         if (Version <= GameVersion.CXD && MetLocationDP > 0x4000)
-            return new PK5(Data);
+            return pk5;
 
-        PK5 pk5 = new(Data.AsSpan(0, PokeCrypto.SIZE_5PARTY).ToArray()) // Convert away!
-        {
-            JunkByte = 0,
-            OriginalTrainerFriendship = 70,
-            // Apply new met date
-            MetDate = EncounterDate.GetDateNDS(),
-        };
+        pk5.JunkByte = 0;
+        pk5.OriginalTrainerFriendship = 70;
+        if (!EntityConverter.RetainMetDateTransfer45)
+            EncounterDate.GetDateNDS(); // Apply new met date
         pk5.HeldMail.Clear();
 
         // Arceus Type Changing -- Plate forcibly removed.
@@ -327,7 +332,7 @@ public sealed class PK4 : G4PKM
             pk5.Form = 0;
             pk5.HeldItem = 0;
         }
-        else if (Array.IndexOf(Legal.HeldItems_BW, (ushort)HeldItem) == -1)
+        else if (!Legal.HeldItems_BW.AsSpan().Contains((ushort)HeldItem))
         {
             pk5.HeldItem = 0; // if valid, it's already copied
         }
@@ -352,8 +357,8 @@ public sealed class PK4 : G4PKM
         pk5.Ball = Ball;
 
         // Transfer Nickname and OT Name, update encoding
-        TransferTrash(NicknameTrash, pk5.NicknameTrash);
-        TransferTrash(OriginalTrainerTrash, pk5.OriginalTrainerTrash);
+        TransferTrash(NicknameTrash, pk5.NicknameTrash, Language);
+        TransferTrash(OriginalTrainerTrash, pk5.OriginalTrainerTrash, Language);
 
         // Fix Level
         pk5.MetLevel = pk5.CurrentLevel;
@@ -376,11 +381,24 @@ public sealed class PK4 : G4PKM
         return pk5;
     }
 
-    public static void TransferTrash(ReadOnlySpan<byte> src, Span<byte> dest)
+    public static void TransferTrash(ReadOnlySpan<byte> src, Span<byte> dest, int language)
     {
         Span<char> temp = stackalloc char[13];
         var len = StringConverter4.LoadString(src, temp);
-        StringConverter345.TransferGlyphs45(temp[..len]);
-        StringConverter5.SetString(dest, temp[..len], len);
+        temp = temp[..len];
+        StringConverter345.TransferGlyphs45(temp);
+        StringConverter5.SetString(dest, temp, len, language);
     }
+
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter4.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter4.LoadString(data, destBuffer);
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+        => StringConverter4.SetString(destBuffer, value, maxLength, Language, option);
+    public override int GetStringTerminatorIndex(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetTerminatorIndex(data, StringConverter4.Terminator);
+    public override int GetStringLength(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetStringLength(data, StringConverter4.Terminator);
+    public override int GetBytesPerChar() => 2;
 }

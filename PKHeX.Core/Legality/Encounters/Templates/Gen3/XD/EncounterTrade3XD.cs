@@ -19,7 +19,7 @@ public sealed record EncounterTrade3XD : IEncounterable, IEncounterMatch, IEncou
     public bool FatefulEncounter => true;
 
     public bool IsFixedTrainer => true;
-    public bool IsFixedNickname => Nicknames.Length > 0;
+    public bool IsFixedNickname => Nicknames.Length != 0;
     public ushort Species { get; }
     public byte Level { get; }
 
@@ -171,7 +171,7 @@ public sealed record EncounterTrade3XD : IEncounterable, IEncounterMatch, IEncou
     }
     #endregion
 
-    public bool IsCompatible(PIDType val, PKM pk) => val is PIDType.CXD;
+    public bool IsCompatible(PIDType type, PKM pk) => type is PIDType.CXD;
     public PIDType GetSuggestedCorrelation() => PIDType.CXD;
     public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language)
     {
@@ -182,11 +182,12 @@ public sealed record EncounterTrade3XD : IEncounterable, IEncounterMatch, IEncou
         var name = TrainerNames[language];
         if (pk.Context == EntityContext.Gen3)
             return trainer.SequenceEqual(name);
-
-        Span<char> tmp = stackalloc char[name.Length];
-        StringConverter345.TransferGlyphs34(name, language, tmp);
-        return trainer.SequenceEqual(tmp);
+        if (IsSpanishDuking(language)) // Gen4+
+            return trainer is Encounters3Colo.TrainerNameDukingSpanish4;
+        return trainer.SequenceEqual(name);
     }
+
+    private bool IsSpanishDuking(int language) => language is (int)LanguageID.Spanish && Species is not (int)Core.Species.Elekid;
 
     public bool IsNicknameMatch(PKM pk, ReadOnlySpan<char> nickname, int language)
     {

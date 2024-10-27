@@ -36,7 +36,7 @@ internal static class Program
         new Task(() => splash.ShowDialog()).Start();
         new Task(() => EncounterEvent.RefreshMGDB(WinForms.Main.MGDatabasePath)).Start();
         var main = new Main();
-        splash.Invoke(splash.ForceClose);
+        splash.BeginInvoke(splash.ForceClose);
         Application.Run(main);
     }
 
@@ -68,9 +68,7 @@ internal static class Program
         try
         {
             var e = t.Exception;
-            string errorMessage = IsPluginError<IPlugin>(e, out var pluginName)
-                ? $"An error occurred in a PKHeX plugin. Please report this error to the plugin author/maintainer.\n{pluginName}"
-                : "An error occurred in PKHeX. Please report this error to the PKHeX author.";
+            string errorMessage = GetErrorMessage(e);
             result = ErrorWindow.ShowErrorDialog(errorMessage, e, true);
         }
         catch (Exception reportingException)
@@ -81,6 +79,17 @@ internal static class Program
         // Exits the program when the user clicks Abort.
         if (result == DialogResult.Abort)
             Application.Exit();
+    }
+
+    private static string GetErrorMessage(Exception e)
+    {
+        try
+        {
+            if (IsPluginError<IPlugin>(e, out var pluginName))
+                return $"An error occurred in a PKHeX plugin. Please report this error to the plugin author/maintainer.\n{pluginName}";
+        }
+        catch { }
+        return "An error occurred in PKHeX. Please report this error to the PKHeX author.";
     }
 
     // Handle the UI exceptions by showing a dialog box, and asking the user if they wish to abort execution.
@@ -95,9 +104,14 @@ internal static class Program
             {
                 Error("You have upgraded PKHeX incorrectly. Please delete PKHeX.Core.dll.");
             }
+            else if (IsPkhexCoreMissing(ex))
+            {
+                Error("You have installed PKHeX incorrectly. Please ensure you have unzipped all files before running.");
+            }
             else if (ex != null)
             {
-                ErrorWindow.ShowErrorDialog("An unhandled exception has occurred.\nPKHeX must now close.", ex, false);
+                var msg = GetErrorMessage(ex);
+                ErrorWindow.ShowErrorDialog($"{msg}\nPKHeX must now close.", ex, false);
             }
             else
             {
@@ -178,6 +192,11 @@ internal static class Program
         return ex is MissingMethodException or TypeLoadException or TypeInitializationException
             && File.Exists("PKHeX.Core.dll")
             && AssemblyName.GetAssemblyName("PKHeX.Core.dll").Version < CurrentVersion;
+    }
+
+    private static bool IsPkhexCoreMissing(Exception? ex)
+    {
+        return ex is FileNotFoundException { FileName: {} n } && n.Contains("PKHeX.Core");
     }
 #endif
 }

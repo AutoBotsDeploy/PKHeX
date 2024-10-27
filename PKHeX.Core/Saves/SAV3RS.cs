@@ -11,8 +11,8 @@ namespace PKHeX.Core;
 public sealed class SAV3RS : SAV3, IGen3Hoenn, IDaycareRandomState<ushort>
 {
     // Configuration
-    protected override SAV3RS CloneInternal() => new(Write());
-    public override GameVersion Version { get => GameVersion.RS; set { } }
+    protected override SAV3RS CloneInternal() => new(GetFinalData()) { Language = Language };
+    public override GameVersion Version { get; set; } = GameVersion.RS; // allow mutation
     public override PersonalTable3 Personal => PersonalTable.RS;
 
     public override int EventFlagCount => 8 * 288;
@@ -99,10 +99,12 @@ public sealed class SAV3RS : SAV3, IGen3Hoenn, IDaycareRandomState<ushort>
         ];
     }
 
+    private Span<byte> PokeBlockData => Large.AsSpan(0x7F8, PokeBlock3Case.SIZE);
+
     public PokeBlock3Case PokeBlocks
     {
-        get => new(Large, 0x7F8);
-        set => SetData(Large.AsSpan(0x7F8), value.Write());
+        get => new(PokeBlockData);
+        set => value.Write(PokeBlockData);
     }
 
     protected override int SeenOffset2 => 0x938;

@@ -131,7 +131,7 @@ public sealed record EncounterSlot4(EncounterArea4 Parent, ushort Species, byte 
             // Must match level exactly.
             if (!this.IsLevelWithinRange(pk.MetLevel))
             {
-                if ((Type is not Grass || pk.MetLevel != PressureLevel) || ParseSettings.RNGFrameNotFound4 != Severity.Invalid)
+                if ((Type is not Grass || pk.MetLevel != PressureLevel) || ParseSettings.Settings.FramePattern.RNGFrameNotFound4 != Severity.Invalid)
                     return false; // Only allow Pressure Slots through if they'll be checked by the later Lead verification.
             }
         }
@@ -176,15 +176,15 @@ public sealed record EncounterSlot4(EncounterArea4 Parent, ushort Species, byte 
     private bool IsDeferredWurmple(PKM pk) => Species == (int)Core.Species.Wurmple && pk.Species != (int)Core.Species.Wurmple && !WurmpleUtil.IsWurmpleEvoValid(pk);
     #endregion
 
-    public bool IsCompatible(PIDType val, PKM pk)
+    public bool IsCompatible(PIDType type, PKM pk)
     {
-        if (val is PIDType.Method_1)
+        if (type is PIDType.Method_1)
             return true;
         // Chain shiny with Poké Radar is only possible in D/P/Pt, in grass.
         // Safari Zone does not allow using the Poké Radar
-        if (val is PIDType.ChainShiny)
+        if (type is PIDType.ChainShiny)
             return pk.IsShiny && CanUseRadar;
-        if (val is PIDType.CuteCharm)
+        if (type is PIDType.CuteCharm)
             return MethodFinder.IsCuteCharm4Valid(this, pk);
         return false;
     }

@@ -7,6 +7,7 @@ namespace PKHeX.Core;
 public sealed class EncounterGenerator3 : IEncounterGenerator
 {
     public static readonly EncounterGenerator3 Instance = new();
+    public bool CanGenerateEggs => true;
 
     public IEnumerable<IEncounterable> GetPossible(PKM _, EvoCriteria[] chain, GameVersion game, EncounterTypeGroup groups)
     {
@@ -21,6 +22,29 @@ public sealed class EncounterGenerator3 : IEncounterGenerator
         return GetEncounters(pk, chain, info);
     }
 
+    private enum DeferralType
+    {
+        None,
+        PIDIV,
+        Tile,
+        Ball,
+        SlotNumber,
+    }
+
+    private struct Deferral
+    {
+        public DeferralType Type;
+        public IEncounterable? Encounter;
+
+        public void Update(DeferralType type, IEncounterable enc)
+        {
+            if (Type >= type)
+                return;
+            Type = type;
+            Encounter = enc;
+        }
+    }
+
     public IEnumerable<IEncounterable> GetEncounters(PKM pk, EvoCriteria[] chain, LegalInfo info)
     {
         if (chain.Length == 0)
@@ -29,8 +53,7 @@ public sealed class EncounterGenerator3 : IEncounterGenerator
         info.PIDIV = MethodFinder.Analyze(pk);
         var game = pk.Version;
         var iterator = new EncounterEnumerator3(pk, chain, game);
-        IEncounterable? deferType = null;
-        EncounterSlot3? deferSlot = null;
+        Deferral defer = default;
         var leadQueue = new LeadEncounterQueue<EncounterSlot3>();
 
         bool emerald = pk.E;
@@ -41,33 +64,18 @@ public sealed class EncounterGenerator3 : IEncounterGenerator
         foreach (var enc in iterator)
         {
             var e = enc.Encounter;
-            if (!IsTypeCompatible(e, pk, info.PIDIV.Type))
+            if (!IsTypeCompatible(e, pk, ref info.GetPIDIVRef()))
             {
-                deferType ??= e;
+                defer.Update(DeferralType.PIDIV, e);
+                continue;
+            }
+            if (!IsBallCompatible(e, pk))
+            {
+                defer.Update(DeferralType.Ball, e);
                 continue;
             }
             if (e is not EncounterSlot3 slot)
             {
-                if (e is WC3 wc3)
-                {
-                    if (wc3.TID16 == 40122) // CHANNEL Jirachi
-                    {
-                        var chk = ChannelJirachi.GetPossible(info.PIDIV.OriginSeed);
-                        if (chk.Pattern is not ChannelJirachiRandomResult.None)
-                            info.PIDIV = info.PIDIV.AsEncounteredVia(new(chk.Seed, LeadRequired.None));
-                        else
-                            info.ManualFlag = EncounterYieldFlag.InvalidPIDIV;
-                        yield return wc3;
-                        yield break;
-                    }
-                    if (wc3.TID16 == 06930) // MYSTRY Mew
-                    {
-                        if (!MystryMew.IsValidSeed(info.PIDIV.OriginSeed))
-                            info.ManualFlag = EncounterYieldFlag.InvalidPIDIV;
-                        yield return wc3;
-                        yield break;
-                    }
-                }
                 yield return e;
                 continue;
             }
@@ -76,7 +84,7 @@ public sealed class EncounterGenerator3 : IEncounterGenerator
             var lead = LeadFinder.GetLeadInfo3(slot, info.PIDIV, evo, emerald, gender, pk.Format);
             if (!lead.IsValid())
             {
-                deferSlot ??= slot;
+                defer.Update(DeferralType.SlotNumber, slot);
                 continue;
             }
             leadQueue.Insert(lead, slot);
@@ -90,21 +98,27 @@ public sealed class EncounterGenerator3 : IEncounterGenerator
         if (leadQueue.List.Count != 0)
             yield break;
 
-        // Error will be flagged later if this is chosen.
-        if (deferSlot != null)
-        {
-            info.ManualFlag = EncounterYieldFlag.InvalidFrame;
-            yield return deferSlot;
-        }
-        else if (deferType != null)
-        {
+        // Errors will be flagged later for those not manually handled below.
+        if (defer.Encounter is not { } lastResort)
+            yield break;
+        if (defer.Type is DeferralType.PIDIV)
             info.ManualFlag = EncounterYieldFlag.InvalidPIDIV;
-            yield return deferType;
-        }
+        else if (defer.Type is DeferralType.SlotNumber)
+            info.ManualFlag = EncounterYieldFlag.InvalidFrame;
+        yield return lastResort;
     }
 
-    private static bool IsTypeCompatible(IEncounterTemplate enc, PKM pk, PIDType type)
+    private static bool IsBallCompatible(IFixedBall e, PKM pk) => e.FixedBall switch
     {
+        Ball.Safari when pk.Ball is (byte)Ball.Safari => true,
+        _ => pk.Ball is not (byte)Ball.Safari,
+    };
+
+    private static bool IsTypeCompatible(IEncounterTemplate enc, PKM pk, ref PIDIV pidiv)
+    {
+        if (enc is IRandomCorrelationEvent3 revise)
+            return revise.IsCompatibleReviseReset(ref pidiv, pk);
+        var type = pidiv.Type;
         if (enc is IRandomCorrelation r)
             return r.IsCompatible(type, pk);
         return type == PIDType.None;

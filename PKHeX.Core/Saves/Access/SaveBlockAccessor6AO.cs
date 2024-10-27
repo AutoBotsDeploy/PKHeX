@@ -80,6 +80,7 @@ public sealed class SaveBlockAccessor6AO(SAV6AO sav) : ISaveBlockAccessor<BlockI
     public GameTime6 GameTime { get; } = new(sav, Block(sav, 3));
     public Situation6 Situation { get; } = new(sav, Block(sav, 4));
     public PlayTime6 Played { get; } = new(sav, Block(sav, 6));
+    public FieldMoveModelSave6 Overworld { get; } = new(sav, Block(sav, 10));
     public Misc6AO Misc { get; } = new(sav, Block(sav, 11));
     public BoxLayout6 BoxLayout { get; } = new(sav, Block(sav, 12));
     public BattleBox6 BattleBox { get; } = new(sav, Block(sav, 13));
@@ -91,6 +92,7 @@ public sealed class SaveBlockAccessor6AO(SAV6AO sav) : ISaveBlockAccessor<BlockI
     public OPower6 OPower { get; } = new(sav, Block(sav, 25));
     public GTS6 GTS { get; } = new(sav, Block(sav, 28));
     public Encount6 Encount { get; } = new(sav, Block(sav, 31));
+    public HallOfFame6 HallOfFame { get; } = new(sav, Block(sav, 36));
     public MaisonBlock Maison { get; } = new(sav, Block(sav, 37));
     public Daycare6AO Daycare { get; } = new(sav, Block(sav, 38));
     public BerryField6AO BerryField { get; } = new(sav, Block(sav, 40));
@@ -99,6 +101,7 @@ public sealed class SaveBlockAccessor6AO(SAV6AO sav) : ISaveBlockAccessor<BlockI
     public RecordBlock6AO Records { get; } = new(sav, Block(sav, 44));
     public SuperTrainBlock SuperTrain { get; } = new(sav, Block(sav, 46));
     public LinkBlock6 Link { get; } = new(sav, Block(sav, 48));
+    public Contest6 Contest { get; } = new(sav, Block(sav, 53));
     public SecretBase6Block SecretBase { get; } = new(sav, Block(sav, 54));
     public SangoInfoBlock Sango { get; } = new(sav, Block(sav, 55));
 

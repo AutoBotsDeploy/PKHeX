@@ -76,7 +76,7 @@ public sealed class PCD(byte[] Data)
     public override string CardTitle
     {
         get => StringConverter4.GetString(CardTitleSpan);
-        set => StringConverter4.SetString(CardTitleSpan, value, TitleLength / 2, StringConverterOption.ClearFF);
+        set => StringConverter4.SetString(CardTitleSpan, value, TitleLength / 2, 0, StringConverterOption.ClearFF);
     }
 
     public ushort CardCompatibility => ReadUInt16LittleEndian(Data.AsSpan(0x14C)); // rest of bytes we don't really care about
@@ -101,29 +101,17 @@ public sealed class PCD(byte[] Data)
     public override ushort Location { get => (ushort)(IsEgg ? 0 : Gift.EggLocation + 3000); set { } }
     public override ushort EggLocation { get => (ushort)(IsEgg ? Gift.EggLocation + 3000 : 0); set { } }
 
-    public bool IsCompatible(PIDType val, PKM pk) => Gift.IsCompatible(val, pk);
+    public bool IsCompatible(PIDType type, PKM pk) => Gift.IsCompatible(type, pk);
     public PIDType GetSuggestedCorrelation() => Gift.GetSuggestedCorrelation();
 
     public bool GiftEquals(PGT pgt)
     {
         // Skip over the PGT's "Corresponding PCD Slot" @ 0x02
-        byte[] g = pgt.Data;
-        byte[] c = Gift.Data;
+        ReadOnlySpan<byte> g = pgt.Data;
+        ReadOnlySpan<byte> c = Gift.Data;
         if (g.Length != c.Length || g.Length < 3)
             return false;
-        for (int i = 0; i < 2; i++)
-        {
-            if (g[i] != c[i])
-                return false;
-        }
-
-        for (int i = 3; i < g.Length; i++)
-        {
-            if (g[i] != c[i])
-                return false;
-        }
-
-        return true;
+        return g[..2].SequenceEqual(c[..2]) && g[3..].SequenceEqual(c[3..]);
     }
 
     public override PK4 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
@@ -163,7 +151,7 @@ public sealed class PCD(byte[] Data)
                 return false;
             if (wc.CurrentLevel != pk.MetLevel)
                 return false;
-            if (pk is { IsEgg: true, IsNative: false })
+            if (pk is { IsEgg: true, Format: not 4 })
                 return false;
         }
 

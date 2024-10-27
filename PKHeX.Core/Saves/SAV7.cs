@@ -75,7 +75,7 @@ public abstract class SAV7 : SAV_BEEF, ITrainerStatRecord, ISaveBlock7Main, IReg
     public override int MaxEV => EffortValues.Max252;
     public override byte Generation => 7;
     public override EntityContext Context => EntityContext.Gen7;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
 
     public override int MaxBallID => Legal.MaxBallID_7; // 26
@@ -109,12 +109,12 @@ public abstract class SAV7 : SAV_BEEF, ITrainerStatRecord, ISaveBlock7Main, IReg
     public override bool IsVersionValid() =>
         Version is GameVersion.SN or GameVersion.MN or GameVersion.US or GameVersion.UM;
 
-    public sealed override string GetString(ReadOnlySpan<byte> data) => StringConverter7.GetString(data);
-
+    public sealed override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter7.GetString(data);
+    public sealed override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter7.LoadString(data, destBuffer);
     public sealed override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter7.SetString(destBuffer, value, maxLength, Language, option);
-    }
+        => StringConverter7.SetString(destBuffer, value, maxLength, Language, option);
 
     // Player Information
     public override uint ID32 { get => MyStatus.ID32; set => MyStatus.ID32 = value; }
@@ -209,7 +209,7 @@ public abstract class SAV7 : SAV_BEEF, ITrainerStatRecord, ISaveBlock7Main, IReg
         protected set => Data[Party + (6 * SIZE_PARTY)] = (byte)value;
     }
 
-    public override StorageSlotSource GetSlotFlags(int index)
+    public override StorageSlotSource GetBoxSlotFlags(int index)
     {
         int team = Array.IndexOf(TeamSlots, index);
         if (team < 0)
@@ -251,4 +251,6 @@ public abstract class SAV7 : SAV_BEEF, ITrainerStatRecord, ISaveBlock7Main, IReg
 
     IEventFlag37 IEventFlagProvider37.EventWork => EventWork;
     IMysteryGiftStorage IMysteryGiftStorageProvider.MysteryGiftStorage => MysteryGift;
+
+    public abstract void UpdateQrConstants();
 }

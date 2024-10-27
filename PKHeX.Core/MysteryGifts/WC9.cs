@@ -8,7 +8,7 @@ namespace PKHeX.Core;
 /// Generation 9 Mystery Gift Template File
 /// </summary>
 public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature, ITeraType, IRibbonIndex, IMemoryOT,
-    ILangNicknamedTemplate, IEncounterServerDate, IRelearn,
+    ILangNicknamedTemplate, IEncounterServerDate, IRelearn, IMetLevel,
     IRibbonSetEvent3, IRibbonSetEvent4, IRibbonSetCommon3, IRibbonSetCommon4, IRibbonSetCommon6, IRibbonSetCommon7,
     IRibbonSetCommon8, IRibbonSetMark8, IRibbonSetCommon9, IRibbonSetMark9, IEncounterMarkExtra
 {
@@ -34,10 +34,9 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
 
     public bool CanBeReceivedByVersion(PKM pk) => RestrictVersion switch
     {
-        0 when !IsEntity => true, // Whatever, essentially unrestricted for SL/VL receipt. No Entity gifts are 0.
         1 => pk.Version is GameVersion.SL || pk.MetLocation == LocationsHOME.SWSL,
         2 => pk.Version is GameVersion.VL || pk.MetLocation == LocationsHOME.SHVL,
-        3 => pk.Version is GameVersion.SL or GameVersion.VL || pk.MetLocation is LocationsHOME.SWSL or LocationsHOME.SHVL,
+        0 or 3 => pk.Version is GameVersion.SL or GameVersion.VL || pk.MetLocation is LocationsHOME.SWSL or LocationsHOME.SHVL,
           _ => throw new ArgumentOutOfRangeException(nameof(RestrictVersion), RestrictVersion, null),
     };
 
@@ -218,9 +217,9 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
     // Ribbons 0x24C-0x26C
     private const int RibbonBytesOffset = 0x248;
     private const int RibbonBytesCount = 0x20;
-    private const int RibbonByteNone = 0xFF; // signed -1
+    private const byte RibbonByteNone = 0xFF; // signed -1
 
-    private ReadOnlySpan<byte> RibbonSpan => Data.AsSpan(RibbonBytesOffset, RibbonBytesCount);
+    private Span<byte> RibbonSpan => Data.AsSpan(RibbonBytesOffset, RibbonBytesCount);
 
     public bool HasMarkEncounter8
     {
@@ -251,13 +250,13 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
     public byte GetRibbonAtIndex(int byteIndex)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual<uint>((uint)byteIndex, RibbonBytesCount);
-        return Data[RibbonBytesOffset + byteIndex];
+        return RibbonSpan[byteIndex];
     }
 
     public void SetRibbonAtIndex(int byteIndex, byte ribbonIndex)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual<uint>((uint)byteIndex, RibbonBytesCount);
-        Data[RibbonBytesOffset + byteIndex] = ribbonIndex;
+        RibbonSpan[byteIndex] = ribbonIndex;
     }
 
     public int IV_HP  { get => Data[CardStart + 0x268]; set => Data[CardStart + 0x268] = (byte)value; }
@@ -643,9 +642,9 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
     {
         Span<int> finalIVs = stackalloc int[6];
         GetIVs(finalIVs);
-        var ivflag = finalIVs.Find(static iv => (byte)(iv - 0xFC) < 3);
+        var ivflag = finalIVs.IndexOfAny(0xFC, 0xFD, 0xFE);
         var rng = Util.Rand;
-        if (ivflag == default) // Random IVs
+        if (ivflag == -1) // Random IVs
         {
             for (int i = 0; i < finalIVs.Length; i++)
             {
@@ -655,7 +654,7 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
         }
         else // 1/2/3 perfect IVs
         {
-            int IVCount = ivflag - 0xFB;
+            int IVCount = finalIVs[ivflag] - 0xFB;
             do { finalIVs[rng.Next(6)] = 31; }
             while (finalIVs.Count(31) < IVCount);
             for (int i = 0; i < finalIVs.Length; i++)
@@ -714,7 +713,7 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
                 return false; // can't be traded away for unshiny
             }
 
-            if (pk is { IsEgg: true, IsNative: false })
+            if (pk is { IsEgg: true, Context: not EntityContext.Gen9 })
                 return false;
         }
         else
@@ -901,7 +900,7 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
     public bool RibbonMarkTitan { get => this.GetRibbonIndex(MarkTitan); set => this.SetRibbonIndex(MarkTitan, value); }
     public bool RibbonPartner { get => this.GetRibbonIndex(Partner); set => this.SetRibbonIndex(Partner, value); }
 
-    public int GetRibbonByte(int index) => Array.IndexOf(Data, (byte)index, RibbonBytesOffset, RibbonBytesCount);
+    public int GetRibbonByte(int index) => RibbonSpan.IndexOf((byte)index);
     public bool GetRibbon(int index) => RibbonSpan.Contains((byte)index);
 
     public void SetRibbon(int index, bool value = true)
@@ -911,7 +910,7 @@ public sealed class WC9(byte[] Data) : DataMysteryGift(Data), ILangNick, INature
         {
             if (GetRibbon(index))
                 return;
-            var openIndex = Array.IndexOf(Data, RibbonByteNone, RibbonBytesOffset, RibbonBytesCount);
+            var openIndex = RibbonSpan.IndexOf(RibbonByteNone);
             ArgumentOutOfRangeException.ThrowIfNegative(openIndex, nameof(openIndex)); // Full?
             SetRibbonAtIndex(openIndex, (byte)index);
         }

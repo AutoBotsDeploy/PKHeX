@@ -41,10 +41,9 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
     public override string Extension => ".bin";
 
     protected override RK4 GetPKM(byte[] data) => new(data);
-    public override StorageSlotSource GetSlotFlags(int index) => index >= SlotCount ? StorageSlotSource.Locked : StorageSlotSource.None;
-    protected override bool IsSlotSwapProtected(int box, int slot) => IsSlotOverwriteProtected(box, slot);
+    public override StorageSlotSource GetBoxSlotFlags(int index) => index >= SlotCount ? StorageSlotSource.Locked : StorageSlotSource.None;
+    protected override bool IsSlotSwapProtected(int box, int slot) => IsBoxSlotOverwriteProtected(box, slot);
     public override bool IsPKMPresent(ReadOnlySpan<byte> data) => EntityDetection.IsPresentSAV4Ranch(data);
-
 
     private readonly GameVersion _version;
     public override GameVersion Version { get => _version; set { } }
@@ -251,10 +250,10 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
         set { var time = PlayedSpan; PlayedSpan = time - TimeSpan.FromSeconds(time.Seconds) + TimeSpan.FromSeconds(value); }
     }
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter4GC.GetStringUnicode(data);
-
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter4GC.GetStringUnicode(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter4GC.LoadStringUnicode(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter4GC.SetStringUnicode(value, destBuffer, maxLength, option);
-    }
+        => StringConverter4GC.SetStringUnicode(value, destBuffer, maxLength, option);
 }

@@ -114,6 +114,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         Stats.UpdateStats();
         if (Entity is IScaledSizeAbsolute)
             SizeCP.TryResetStats();
+        StatusView.LoadPKM(Entity);
     }
 
     private void LoadPartyStats(PKM pk) => Stats.LoadPartyStats(pk);
@@ -187,7 +188,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
 
     private readonly PictureBox[] relearnPB;
     public SaveFile RequestSaveFile => SaveFileRequested.Invoke(this, EventArgs.Empty);
-    public bool PKMIsUnsaved => FieldsLoaded && LastData.Any(b => b != 0) && !LastData.SequenceEqual(CurrentPKM.Data);
+    public bool PKMIsUnsaved => FieldsLoaded && LastData.AsSpan().ContainsAnyExcept<byte>(0) && !LastData.SequenceEqual(CurrentPKM.Data);
 
     private readonly MoveChoice[] Moves;
     private readonly ComboBox[] Relearn;
@@ -214,30 +215,33 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     {
         get
         {
+            // Find the first unfilled control, indicate as invalid.
+            TabPage? invalid = GetInvalidParentTab();
+            if (invalid is null)
+                return true; // No issue.
+
             if (ModifierKeys == (Keys.Control | Keys.Shift | Keys.Alt))
                 return true; // Override
-
-            // Find the first unfilled control, indicate as invalid.
-            Control? cb = null;
-            foreach (var type in ValidatedControls)
-            {
-                cb = type.IsNotValid(Entity);
-                if (cb is not null)
-                    break;
-            }
-
-            if (cb != null)
-                Hidden_TC.SelectedTab = WinFormsUtil.FindFirstControlOfType<TabPage>(cb);
-            else if (!Stats.Valid)
-                Hidden_TC.SelectedTab = Hidden_Stats;
-            else if (WinFormsUtil.GetIndex(CB_Species) == 0 && !HaX) // can't set an empty slot...
-                Hidden_TC.SelectedTab = Hidden_Main;
-            else
-                return true;
 
             System.Media.SystemSounds.Exclamation.Play();
             return false;
         }
+    }
+
+    private TabPage? GetInvalidParentTab()
+    {
+        if (!Stats.Valid)
+            return Hidden_Stats;
+        if (WinFormsUtil.GetIndex(CB_Species) == 0 && !HaX) // can't set an empty slot...
+            return Hidden_Main;
+        foreach (var type in ValidatedControls)
+        {
+            var cb = type.IsNotValid(Entity);
+            if (cb is null)
+                continue;
+            return WinFormsUtil.FindFirstControlOfType<TabPage>(cb);
+        }
+        return null;
     }
 
     public void SetPKMFormatMode(PKM pk)
@@ -685,7 +689,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         byte handler = 0;
         if (sender == GB_OT)
             handler = 0;
-        else if (TB_HT.Text.Length > 0)
+        else if (TB_HT.Text.Length != 0)
             handler = 1;
         UpdateHandlerSelected(handler);
     }
@@ -871,15 +875,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
             Entity.MetLocation = location;
             TB_MetLevel.Text = encounter.GetSuggestedMetLevel(Entity).ToString();
             CB_MetLocation.SelectedValue = (int)location;
-            var timeIndex = 0;
-            if (encounter.Encounter is { } enc && location is < 253 and not 0)
-            {
-                if (enc is EncounterSlot2 s2)
-                    timeIndex = s2.GetRandomTime();
-                else
-                    timeIndex = Util.Rand.Next(1, 4);
-            }
-            CB_MetTimeOfDay.SelectedIndex = timeIndex;
+            CB_MetTimeOfDay.SelectedIndex = location == 0 ? 0 : encounter.GetSuggestedMetTimeOfDay();
         }
 
         if (Entity.CurrentLevel < minLevel)
@@ -1211,7 +1207,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         {
             bool g4 = Entity.Gen4;
             CB_GroundTile.Visible = Label_GroundTile.Visible = g4 && Entity.Format < 7;
-            if (!g4)
+            if (FieldsLoaded && !g4)
                 CB_GroundTile.SelectedValue = (int)GroundTileType.None;
         }
 
@@ -1318,12 +1314,13 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         if (!FieldsLoaded)
             return;
 
+        RefreshFontWarningButton();
         Entity.Nickname = TB_Nickname.Text;
         if (CHK_NicknamedFlag.Checked)
             return;
 
         var species = (ushort)WinFormsUtil.GetIndex(CB_Species);
-        if (species < 1 || species > Entity.MaxSpeciesID)
+        if (species is 0 || species > Entity.MaxSpeciesID)
             return;
 
         if (CHK_IsEgg.Checked)
@@ -1407,8 +1404,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
             return;
         }
 
-        var sav = RequestSaveFile;
-        using var d = new TrashEditor(tb, trash, sav);
+        using var d = new TrashEditor(tb, trash, Entity, Entity.Format);
         d.ShowDialog();
         tb.Text = d.FinalString;
         d.FinalBytes.CopyTo(trash);
@@ -1756,16 +1752,30 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         var brush = Draw.Brushes.GetBackground(valid, current);
         var textColor = Draw.GetText(current);
 
-        DrawMoveRectangle(e, brush, text, textColor);
+        var type = MoveInfo.GetType((ushort)value, Entity.Context);
+        var moveTypeIcon = TypeSpriteUtil.GetTypeSpriteIconSmall(type);
+        DrawMoveRectangle(e, brush, text, textColor, moveTypeIcon);
     }
 
-    private static void DrawMoveRectangle(DrawItemEventArgs e, Brush brush, string text, Color textColor)
+    private static void DrawMoveRectangle(DrawItemEventArgs e, Brush backBrush, ReadOnlySpan<char> foreText, Color textColor, Bitmap? icon)
     {
-        var rec = new Rectangle(e.Bounds.X - 1, e.Bounds.Y, e.Bounds.Width + 1, e.Bounds.Height + 0); // 1px left
-        e.Graphics.FillRectangle(brush, rec);
+        var g = e.Graphics;
+        var rec = e.Bounds;
+        if (icon is not null)
+        {
+            var dim = rec.Height;
+            g.DrawImage(icon, rec with { Width = dim }); // Left side of the rectangle.
+            rec = rec with { X = rec.X + dim, Width = rec.Width - dim };
+        }
+        else
+        {
+            rec = rec with { X = rec.X + 1, Width = rec.Width - 1 }; // 1px left
+        }
+
+        g.FillRectangle(backBrush, rec);
 
         const TextFormatFlags flags = TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.ExpandTabs | TextFormatFlags.SingleLine;
-        TextRenderer.DrawText(e.Graphics, text, e.Font, rec, textColor, flags);
+        TextRenderer.DrawText(g, foreText, e.Font, rec, textColor, flags);
     }
 
     private void MeasureDropDownHeight(object? sender, MeasureItemEventArgs e) => e.ItemHeight = CB_RelearnMove1.ItemHeight;
@@ -1818,29 +1828,34 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         if (pk is IRibbonSetAffixed a)
         {
             var affixed = a.AffixedRibbon;
-            if (affixed != -1)
+            if (affixed != AffixedRibbon.None)
             {
                 PB_Affixed.Image = RibbonSpriteUtil.GetRibbonSprite((RibbonIndex)affixed);
                 PB_Affixed.Visible = true;
                 // Update the tooltip with the ribbon name.
-                var name = RibbonStrings.GetName($"Ribbon{(RibbonIndex)affixed}");
+                var name = RibbonStrings.GetNameSafe($"Ribbon{(RibbonIndex)affixed}", out var result) ? result : affixed.ToString();
+                if (pk is IRibbonSetMarks { RibbonMarkCount: > 1 } y)
+                    name += Environment.NewLine + GetRibbonAffixCount(y);
                 AffixedTip.SetToolTip(PB_Affixed, name);
                 return;
             }
-            if (pk is IRibbonSetMarks { RibbonMarkCount: not 0 })
+            if (pk is IRibbonSetMarks { RibbonMarkCount: not 0 } x)
             {
                 PB_Affixed.Image = Properties.Resources.ribbon_affix_none;
                 PB_Affixed.Visible = true;
-                AffixedTip.SetToolTip(PB_Affixed, "Ribbons / Marks available to affix.");
+                AffixedTip.SetToolTip(PB_Affixed, GetRibbonAffixCount(x));
                 return;
             }
+            static string GetRibbonAffixCount(IRibbonSetMarks x) => $"{x.RibbonMarkCount} available to affix.";
         }
         PB_Affixed.Visible = false;
     }
 
-    private void OpenMedals(object sender, EventArgs e)
+    private void OpenSuperTrainRegimen(object sender, EventArgs e)
     {
-        using var form = new SuperTrainingEditor(Entity);
+        if (Entity is not ISuperTrainRegimen st)
+            return;
+        using var form = new SuperTrainingEditor(st);
         form.ShowDialog();
     }
 
@@ -1932,6 +1947,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         Contest.ToggleInterface(Entity, Entity.Context);
         if (t is not IFormArgument)
             L_FormArgument.Visible = false;
+        StatusView.Visible = Main.Settings.EntityEditor.ShowStatusCondition;
 
         ToggleInterface(Entity.Format);
     }
@@ -1967,7 +1983,8 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         FLP_HeldItem.Visible = format >= 2;
         CHK_IsEgg.Visible = CHK_IsEgg.TabStop = format >= 2;
         FLP_PKRS.Visible = FLP_EggPKRSRight.Visible = format >= 2;
-        UC_Gender.Visible = UC_OTGender.Visible = UC_OTGender.TabStop = format >= 2;
+        UC_OTGender.Visible = UC_OTGender.TabStop = format >= 2;
+        UC_Gender.Visible = format >= 2 || (format == 1 && Main.Settings.EntityEditor.ShowGenderGen1);
         FLP_CatchRate.Visible = format == 1;
 
         // HaX override, needs to be after DEV_Ability enabled assignment.
@@ -1994,8 +2011,8 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         PopulateFields(Entity);
 
         // Save File Specific Limits
-        TB_OT.MaxLength = Entity.MaxStringLengthOT;
-        TB_HT.MaxLength = Entity.MaxStringLengthOT;
+        TB_OT.MaxLength = Entity.MaxStringLengthTrainer;
+        TB_HT.MaxLength = Entity.MaxStringLengthTrainer;
         TB_Nickname.MaxLength = Entity.MaxStringLengthNickname;
 
         // Hide Unused Tabs
@@ -2206,7 +2223,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     private void RefreshFontWarningButton(object sender, EventArgs e) => RefreshFontWarningButton();
     private void RefreshFontWarningButton()
     {
-        if (Entity.Generation < 5)
+        if (!IsFontDocumented(Entity))
         {
             BTN_NicknameWarn.Visible = BTN_OTNameWarn.Visible = false;
             return;
@@ -2215,8 +2232,19 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         var context = Entity.Context;
         var langPk = (LanguageID)WinFormsUtil.GetIndex(CB_Language);
         var langSav = (LanguageID)RequestSaveFile.Language;
-        BTN_NicknameWarn.Visible = StringFontUtil.HasUndefinedCharacters(TB_Nickname.Text, context, langPk, langSav);
+
+        // Gen 7 unnicknamed Chinese Pokémon will always be valid after remapping
+        var isUnnicknamedChinese = Entity is PK7 && (SpeciesName.GetSpeciesNameLanguage(Entity.Species, (int)langPk, TB_Nickname.Text, 7) is (int)LanguageID.ChineseS or (int)LanguageID.ChineseT);
+
+        BTN_NicknameWarn.Visible = !isUnnicknamedChinese && StringFontUtil.HasUndefinedCharacters(TB_Nickname.Text, context, langPk, langSav);
         BTN_OTNameWarn.Visible = StringFontUtil.HasUndefinedCharacters(TB_OT.Text, context, langPk, langSav);
+
+        static bool IsFontDocumented(PKM pk)
+        {
+            if (pk.Generation < 5)
+                return pk is (CK3 or XK3); // Only two that are fully documented and definitive
+            return true;
+        }
     }
 
     private void FontWarn(string name, string message, Control ctrl)

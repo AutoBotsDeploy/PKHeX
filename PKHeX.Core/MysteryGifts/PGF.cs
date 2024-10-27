@@ -7,15 +7,26 @@ namespace PKHeX.Core;
 /// Generation 5 Mystery Gift Template File
 /// </summary>
 public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, IRibbonSetEvent4, ILangNick,
-    IContestStats, INature, IRestrictVersion
+    IContestStats, INature, IMetLevel, IRestrictVersion
 {
     public PGF() : this(new byte[Size]) { }
+    public int RestrictLanguage { get; set; } // None
+    public byte RestrictVersion { get; set; } // Permit All
 
     public const int Size = 0xCC;
-    public const int SizeFull = 0x2D0;
     public override byte Generation => 5;
     public override EntityContext Context => EntityContext.Gen5;
-    public override GameVersion Version => OriginGame == 0 ? GameVersion.Gen5 : (GameVersion)OriginGame;
+    public override GameVersion Version => OriginGame != 0 ? (GameVersion)OriginGame : RestrictVersion switch
+    {
+        1 => GameVersion.W,
+        2 => GameVersion.B,
+        3 => GameVersion.BW,
+        4 => GameVersion.W2,
+        8 => GameVersion.B2,
+        12 => GameVersion.B2W2,
+        _ => GameVersion.Gen5,
+    };
+
     public override bool FatefulEncounter => true;
 
     public override uint ID32 { get => ReadUInt32LittleEndian(Data.AsSpan(0x00)); set => WriteUInt32LittleEndian(Data.AsSpan(0x00), value); }
@@ -57,7 +68,7 @@ public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, 
     public string Nickname
     {
         get => StringConverter5.GetString(Data.AsSpan(0x1E, 11 * 2));
-        set => StringConverter5.SetString(Data.AsSpan(0x1E, 11 * 2), value, 11, StringConverterOption.ClearFF);
+        set => StringConverter5.SetString(Data.AsSpan(0x1E, 11 * 2), value, 11, Language, StringConverterOption.ClearFF);
     }
 
     public Nature Nature { get => (Nature)Data[0x34]; set => Data[0x34] = (byte)value; }
@@ -83,7 +94,7 @@ public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, 
     public override string OriginalTrainerName
     {
         get => StringConverter5.GetString(Data.AsSpan(0x4A, 8 * 2));
-        set => StringConverter5.SetString(Data.AsSpan(0x4A, 8 * 2), value, 8, StringConverterOption.ClearFF);
+        set => StringConverter5.SetString(Data.AsSpan(0x4A, 8 * 2), value, 8, Language, StringConverterOption.ClearFF);
     }
 
     public byte OTGender { get => Data[0x5A]; set => Data[0x5A] = value; }
@@ -93,7 +104,7 @@ public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, 
     public override string CardTitle
     {
         get => StringConverter5.GetString(Data.AsSpan(0x60, 37 * 2));
-        set => StringConverter5.SetString(Data.AsSpan(0x60, 37 * 2), value, 36, StringConverterOption.ClearZero);
+        set => StringConverter5.SetString(Data.AsSpan(0x60, 37 * 2), value, 36, Language, StringConverterOption.ClearZero);
     }
 
     // Card Attributes
@@ -172,7 +183,7 @@ public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, 
         value[5] = IV_SPD;
     }
 
-    public bool IsNicknamed => Nickname.Length > 0;
+    public bool IsNicknamed => Nickname.Length != 0;
     public override bool IsShiny => PIDType == 2;
     public override Moveset Moves => new(Move1, Move2, Move3, Move4);
     public override bool IsEntity { get => CardType == 1; set { if (value) CardType = 1; } }
@@ -413,7 +424,7 @@ public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, 
                 return false; // can't be traded away for un-shiny
             }
 
-            if (pk is { IsEgg: true, IsNative: false })
+            if (pk is { IsEgg: true, Format: not 5 })
                 return false;
         }
 
@@ -433,7 +444,24 @@ public sealed class PGF(byte[] Data) : DataMysteryGift(Data), IRibbonSetEvent3, 
     }
 
     protected override bool IsMatchDeferred(PKM pk) => false;
-    protected override bool IsMatchPartial(PKM pk) => !CanBeReceivedByVersion(pk.Version);
 
-    public bool CanBeReceivedByVersion(GameVersion game) => OriginGame == 0 || (GameVersion)OriginGame == game;
+    protected override bool IsMatchPartial(PKM pk)
+    {
+        if (RestrictLanguage != 0 && RestrictLanguage != pk.Language)
+            return true;
+        return !CanBeReceivedByVersion(pk.Version);
+    }
+
+    public bool CanBeReceivedByVersion(GameVersion version)
+    {
+        if (OriginGame != 0)
+            return version == (GameVersion)OriginGame;
+        if (version is < GameVersion.W or > GameVersion.B2)
+            return false;
+        if (RestrictVersion == 0)
+            return true; // no data
+        var bitIndex = (int)(version - GameVersion.W);
+        var bit = 1 << bitIndex;
+        return (RestrictVersion & bit) != 0;
+    }
 }

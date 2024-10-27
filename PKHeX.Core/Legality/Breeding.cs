@@ -1,4 +1,3 @@
-using static PKHeX.Core.GameVersion;
 using static PKHeX.Core.Species;
 
 namespace PKHeX.Core;
@@ -8,25 +7,6 @@ namespace PKHeX.Core;
 /// </summary>
 public static class Breeding
 {
-    /// <summary>
-    /// Checks if the game has a Daycare, and returns true if it does.
-    /// </summary>
-    /// <param name="game">Version ID to check for.</param>
-    public static bool CanGameGenerateEggs(GameVersion game) => game switch
-    {
-        R or S or E or FR or LG => true,
-        D or P or Pt or HG or SS => true,
-        B or W or B2 or W2 => true,
-        X or Y or OR or AS => true,
-        SN or MN or US or UM => true,
-        GD or SI or C => true,
-        SW or SH or BD or SP => true,
-        SL or VL => true,
-
-        GS => true,
-        _ => false,
-    };
-
     /// <summary>
     /// Species that have special handling for breeding.
     /// </summary>
@@ -38,10 +18,32 @@ public static class Breeding
         (int)Volbeat => true,
         (int)Illumise => true,
 
-        (int)Indeedee => true, // male/female
+        (int)Indeedee => true, // male/female form
 
         _ => false,
     };
+
+    /// <summary>
+    /// Species that are determined when the egg is received.
+    /// </summary>
+    public static bool IsGenderSpeciesDetermination(ushort species) => species switch
+    {
+        (int)NidoranF => true,
+        (int)NidoranM => true,
+
+        (int)Volbeat => true,
+        (int)Illumise => true,
+
+        _ => false,
+    };
+
+    /// <summary>
+    /// Checks if the species <see cref="ec"/> is valid for the <see cref="gender"/> if originated from Gen3/4 daycare eggs.
+    /// </summary>
+    /// <param name="ec">Encryption Constant</param>
+    /// <param name="gender">Gender</param>
+    /// <returns>True if valid</returns>
+    public static bool IsValidSpeciesBit34(uint ec, byte gender) => gender != (ec & 0x8000) >> 15; // 1 = Male, 0 = Female, valid if different from Gender value.
 
     /// <summary>
     /// Checks if the <see cref="species"/> can be born with inherited moves from the parents.

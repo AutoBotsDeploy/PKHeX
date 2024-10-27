@@ -10,7 +10,7 @@ namespace PKHeX.Core;
 /// </summary>
 public abstract class SAV_STADIUM : SaveFile, ILangDeviantSave
 {
-    protected internal sealed override string ShortSummary => $"{OT} ({Version})";
+    protected internal sealed override string ShortSummary => $"{OT} ({Version}) {Checksums.CRC16_CCITT(Data):X4}";
     public sealed override string Extension => ".sav";
 
     public abstract int SaveRevision { get; }
@@ -53,7 +53,7 @@ public abstract class SAV_STADIUM : SaveFile, ILangDeviantSave
     public sealed override string ChecksumInfo => ChecksumsValid ? "Checksum valid." : "Checksum invalid";
     protected abstract void SetBoxChecksum(int box);
     protected abstract bool GetIsBoxChecksumValid(int box);
-    protected sealed override void SetChecksums() => SetBoxChecksums();
+    protected override void SetChecksums() => SetBoxChecksums();
     protected abstract void SetBoxMetadata(int box);
 
     protected void SetBoxChecksums()
@@ -93,12 +93,12 @@ public abstract class SAV_STADIUM : SaveFile, ILangDeviantSave
         return result;
     }
 
-    public sealed override string GetString(ReadOnlySpan<byte> data) => StringConverter12.GetString(data, Japanese);
-
+    public sealed override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter1.GetString(data, Japanese);
+    public sealed override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter1.LoadString(data, destBuffer, Japanese);
     public sealed override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter12.SetString(destBuffer, value, maxLength, Japanese, option);
-    }
+        => StringConverter1.SetString(destBuffer, value, maxLength, Japanese, option);
 
     /// <summary>
     /// Some emulators emit with system architecture endianness (Little Endian) instead of the original Big Endian ordering.

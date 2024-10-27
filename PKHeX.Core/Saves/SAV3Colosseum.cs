@@ -42,6 +42,7 @@ public sealed class SAV3Colosseum : SaveFile, IGCSaveFile, IBoxDetailName, IDayc
         Japanese = japanese;
 
         Raw = new byte[ColoCrypto.SLOT_SIZE];
+        CurrentRegion = OriginalRegion = japanese ? GCRegion.NTSC_J : GCRegion.NTSC_U;
         StrategyMemo = Initialize();
         ClearBoxes();
     }
@@ -121,7 +122,7 @@ public sealed class SAV3Colosseum : SaveFile, IGCSaveFile, IBoxDetailName, IDayc
     public override int MaxEV => EffortValues.Max255;
     public override byte Generation => 3;
     public override EntityContext Context => EntityContext.Gen3;
-    public override int MaxStringLengthOT => 10; // as evident by Mattle Ho-Oh
+    public override int MaxStringLengthTrainer => 10; // as evident by Mattle Ho-Oh
     public override int MaxStringLengthNickname => 10;
     public override int MaxMoney => 9999999;
 
@@ -181,8 +182,13 @@ public sealed class SAV3Colosseum : SaveFile, IGCSaveFile, IBoxDetailName, IDayc
         if (pk is not CK3 ck3)
             return;
 
-        ck3.CurrentRegion = (byte)CurrentRegion;
-        ck3.OriginalRegion = (byte)OriginalRegion;
+        var oldRegion = ck3.CurrentRegion;
+        ck3.CurrentRegion = CurrentRegion;
+        ck3.OriginalRegion = OriginalRegion;
+
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(ck3.NicknameTrash, oldRegion, ck3.CurrentRegion, ck3.Language);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(ck3.OriginalTrainerTrash, oldRegion, ck3.CurrentRegion, ck3.Language);
+        ck3.ResetNicknameDisplay();
 
         ck3.ForceCorrectFatefulState(Japanese, ck3.FatefulEncounter);
     }
@@ -254,6 +260,7 @@ public sealed class SAV3Colosseum : SaveFile, IGCSaveFile, IBoxDetailName, IDayc
     public override byte Gender { get => Data[0xAF8]; set => Data[0xAF8] = value; }
     public override uint Money { get => ReadUInt32BigEndian(Data[0xAFC..]); set => WriteUInt32BigEndian(Data[0xAFC..], value); }
     public uint Coupons { get => ReadUInt32BigEndian(Data[0xB00..]); set => WriteUInt32BigEndian(Data[0xB00..], value); }
+    public uint CouponsTotal { get => ReadUInt32BigEndian(Data[0xB04..]); set => WriteUInt32BigEndian(Data[0xB04..], value); }
     public string RUI_Name { get => GetString(Data.Slice(0xB3A, 20)); set => SetString(Data.Slice(0xB3A, 20), value, 10, StringConverterOption.ClearZero); }
 
     public override IReadOnlyList<InventoryPouch> Inventory
@@ -288,10 +295,27 @@ public sealed class SAV3Colosseum : SaveFile, IGCSaveFile, IBoxDetailName, IDayc
     public void SetDaycareEXP(int index, uint value) => WriteUInt32BigEndian(Data[(DaycareOffset + 4)..], value);
     public Memory<byte> GetDaycareSlot(int slot) => Raw.Slice(DaycareOffset + 8, PokeCrypto.SIZE_3CSTORED);
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter3GC.GetString(data);
+    // Japanese Bonus Disc Gift Flags
+    /// <summary> Received Master Ball from JP Colosseum Bonus Disc; for reaching 30,000 <see cref="CouponsTotal"/> </summary>
+    public bool PokeCouponTitleGold { get => GetFlag(Data, 0x1C118, 0); set => SetFlag(Data, 0x1C118, 0, value); }
 
+    /// <summary> Received Light Ball Pikachu from JP Colosseum Bonus Disc; for reaching 5,000 <see cref="CouponsTotal"/> </summary>
+    public bool PokeCouponTitleSilver { get => GetFlag(Data, 0x1C118, 1); set => SetFlag(Data, 0x1C118, 1, value); }
+
+    /// <summary> Received PP Max from JP Colosseum Bonus Disc; for reaching 2,500 <see cref="CouponsTotal"/> </summary>
+    public bool PokeCouponTitleBronze { get => GetFlag(Data, 0x1C118, 2); set => SetFlag(Data, 0x1C118, 2, value); }
+
+    /// <summary> Used by the JP Colosseum Bonus Disc. Records how many Celebi have been sent to a GBA game. </summary>
+    /// <remarks> Celebi cannot be sent using this save if this value >= 48. </remarks>
+    public byte ReceivedAgetoGBA { get => Data[0x1C119]; set => Data[0x1C119] = value; }
+
+    /// <summary> Received Celebi Gift from JP Colosseum Bonus Disc </summary>
+    public bool ReceivedAgeto { get => GetFlag(Data, 0x1C11A, 7); set => SetFlag(Data, 0x1C11A, 7, value); }
+
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter3GC.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter3GC.LoadString(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter3GC.SetString(destBuffer, value, maxLength, option);
-    }
+        => StringConverter3GC.SetString(destBuffer, value, maxLength, option);
 }

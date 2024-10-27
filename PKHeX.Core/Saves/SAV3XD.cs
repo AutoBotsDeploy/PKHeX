@@ -31,12 +31,13 @@ public sealed class SAV3XD : SaveFile, IGCSaveFile, IBoxDetailName, IDaycareStor
     private readonly byte[] BAK;
     private int DaycareOffset;
 
-    public SAV3XD() : base(SaveUtil.SIZE_G3XD)
+    public SAV3XD(bool japanese = false) : base(SaveUtil.SIZE_G3XD)
     {
         BAK = [];
+        CurrentRegion = OriginalRegion = japanese ? GCRegion.NTSC_J : GCRegion.NTSC_U;
         // create fake objects
         StrategyMemo = new StrategyMemo();
-        ShadowInfo = new ShadowInfoTableXD(false);
+        ShadowInfo = new ShadowInfoTableXD(japanese);
         Config = 0xA8;
         Trainer1 = 0xCCD8;
         Party = 0xCD08;
@@ -192,7 +193,7 @@ public sealed class SAV3XD : SaveFile, IGCSaveFile, IBoxDetailName, IDaycareStor
     public override int MaxEV => EffortValues.Max255;
     public override byte Generation => 3;
     public override EntityContext Context => EntityContext.Gen3;
-    public override int MaxStringLengthOT => 7;
+    public override int MaxStringLengthTrainer => 7;
     public override int MaxStringLengthNickname => 10;
     public override int MaxMoney => 9999999;
 
@@ -372,8 +373,13 @@ public sealed class SAV3XD : SaveFile, IGCSaveFile, IBoxDetailName, IDaycareStor
         if (pk is not XK3 xk3)
             return; // shouldn't ever hit
 
-        xk3.CurrentRegion = (byte)CurrentRegion;
-        xk3.OriginalRegion = (byte)OriginalRegion;
+        var oldRegion = xk3.CurrentRegion;
+        xk3.CurrentRegion = CurrentRegion;
+        xk3.OriginalRegion = OriginalRegion;
+
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(xk3.NicknameTrash, oldRegion, xk3.CurrentRegion, xk3.Language);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(xk3.OriginalTrainerTrash, oldRegion, xk3.CurrentRegion, xk3.Language);
+        xk3.ResetNicknameDisplay();
 
         // Set Shadow Data back to save
         var id = xk3.ShadowID;
@@ -452,10 +458,10 @@ public sealed class SAV3XD : SaveFile, IGCSaveFile, IBoxDetailName, IDaycareStor
     public void SetDaycareEXP(int index, uint value) => WriteUInt32BigEndian(Data.AsSpan(DaycareOffset + 4), value);
     public Memory<byte> GetDaycareSlot(int slot) => Data.AsMemory(DaycareOffset + 8, PokeCrypto.SIZE_3XSTORED);
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter3GC.GetString(data);
-
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter3GC.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter3GC.LoadString(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter3GC.SetString(destBuffer, value, maxLength, option);
-    }
+        => StringConverter3GC.SetString(destBuffer, value, maxLength, option);
 }

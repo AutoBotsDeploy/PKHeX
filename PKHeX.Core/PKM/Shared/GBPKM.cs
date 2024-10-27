@@ -62,7 +62,10 @@ public abstract class GBPKM : PKM
         get
         {
             var spName = SpeciesName.GetSpeciesNameGeneration(Species, GuessedLanguage(), Format);
-            return Nickname != spName;
+
+            Span<char> nickname = stackalloc char[TrashCharCountNickname];
+            int len = LoadString(NicknameTrash, nickname);
+            return !nickname[..len].SequenceEqual(spName);
         }
     }
 
@@ -74,9 +77,12 @@ public abstract class GBPKM : PKM
                 return (int)LanguageID.Japanese;
             if (Korean)
                 return (int)LanguageID.Korean;
-            if (StringConverter12.IsG12German(OriginalTrainerTrash))
+            if (StringConverter1.IsG12German(OriginalTrainerTrash))
                 return (int)LanguageID.German; // german
-            int lang = SpeciesName.GetSpeciesNameLanguage(Species, Nickname, Format);
+
+            Span<char> nickname = stackalloc char[TrashCharCountNickname];
+            int len = StringConverter1.LoadString(NicknameTrash, nickname, false);
+            int lang = SpeciesName.GetSpeciesNameLanguage(Species, nickname[..len], Format);
             if (lang > 0)
                 return lang;
             return 0;
@@ -184,12 +190,20 @@ public abstract class GBPKM : PKM
     public void SetNotNicknamed() => SetNotNicknamed(GuessedLanguage());
     public abstract void SetNotNicknamed(int language);
 
+    public bool IsSpeciesNameMatch(int language)
+    {
+        var expect = SpeciesName.GetSpeciesNameGeneration(Species, language, 2);
+        Span<char> current = stackalloc char[TrashCharCountNickname];
+        int len = LoadString(NicknameTrash, current);
+        return current[..len].SequenceEqual(expect);
+    }
+
     public int GuessedLanguage(int fallback = (int)LanguageID.English)
     {
         int lang = Language;
         if (lang > 0)
             return lang;
-        if (fallback is (int)LanguageID.French or (int)LanguageID.German) // only other permitted besides English
+        if (fallback is (int)LanguageID.French or (int)LanguageID.German or (int)LanguageID.Italian or (int)LanguageID.Spanish) // only other permitted besides English
             return fallback;
         return (int)LanguageID.English;
     }
@@ -202,8 +216,7 @@ public abstract class GBPKM : PKM
     protected int TransferLanguage(int destLanguage)
     {
         // if the Species name of the destination language matches the current nickname, transfer with that language.
-        var expect = SpeciesName.GetSpeciesNameGeneration(Species, destLanguage, 2);
-        if (Nickname == expect)
+        if (IsSpeciesNameMatch(destLanguage))
             return destLanguage;
         return GuessedLanguage(destLanguage);
     }
@@ -252,8 +265,14 @@ public abstract class GBPKM : PKM
 
     internal void ImportFromFuture(PKM pk)
     {
-        Nickname = pk.Nickname;
-        OriginalTrainerName = pk.OriginalTrainerName;
+        Span<char> nickname = stackalloc char[pk.TrashCharCountNickname];
+        pk.LoadString(pk.NicknameTrash, nickname);
+        SetString(NicknameTrash, nickname, MaxStringLengthNickname, StringConverterOption.Clear50);
+
+        Span<char> trainer = stackalloc char[pk.TrashCharCountTrainer];
+        pk.LoadString(pk.OriginalTrainerTrash, trainer);
+        SetString(OriginalTrainerTrash, nickname, MaxStringLengthTrainer, StringConverterOption.Clear50);
+
         IV_ATK = pk.IV_ATK / 2;
         IV_DEF = pk.IV_DEF / 2;
         IV_SPC = pk.IV_SPA / 2;

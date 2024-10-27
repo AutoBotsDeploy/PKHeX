@@ -98,7 +98,7 @@ public sealed class RK4 : G4PKM
     public override bool RIB3_6 { get => (RIB3 & (1 << 6)) == 1 << 6; set => RIB3 = (byte)((RIB3 & ~(1 << 6)) | (value ? 1 << 6 : 0)); } // Unused
     public override bool RIB3_7 { get => (RIB3 & (1 << 7)) == 1 << 7; set => RIB3 = (byte)((RIB3 & ~(1 << 7)) | (value ? 1 << 7 : 0)); } // Unused
 
-    public override int RibbonCount => BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x30)) & 0b00001111_11111111__11111111_11111111)
+    public override int RibbonCount => BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x24)) & 0b00001111_11111111__11111111_11111111)
                                      + BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x3C)))
                                      + BitOperations.PopCount(ReadUInt32LittleEndian(Data.AsSpan(0x60)) & 0b00000000_00001111__11111111_11111111);
     #endregion
@@ -186,7 +186,12 @@ public sealed class RK4 : G4PKM
     public override string Nickname
     {
         get => StringConverter4.GetString(NicknameTrash);
-        set => StringConverter4.SetString(NicknameTrash, value, 10, StringConverterOption.None);
+        set
+        {
+            var language = Language;
+            CheckKoreanNidoranDPPt(value, ref language);
+            StringConverter4.SetString(NicknameTrash, value, 10, language, StringConverterOption.None);
+        }
     }
 
     // 0x5E unused
@@ -234,7 +239,7 @@ public sealed class RK4 : G4PKM
     public override string OriginalTrainerName
     {
         get => StringConverter4.GetString(OriginalTrainerTrash);
-        set => StringConverter4.SetString(OriginalTrainerTrash, value, 7, StringConverterOption.None);
+        set => StringConverter4.SetString(OriginalTrainerTrash, value, 7, Language, StringConverterOption.None);
     }
 
     public override byte EggYear { get => Data[0x78]; set => Data[0x78] = value; }
@@ -314,7 +319,7 @@ public sealed class RK4 : G4PKM
     public override string HandlingTrainerName
     {
         get => StringConverter4.GetString(HandlingTrainerTrash);
-        set => StringConverter4.SetString(HandlingTrainerTrash, value, 7, StringConverterOption.None);
+        set => StringConverter4.SetString(HandlingTrainerTrash, value, 7, Language, StringConverterOption.None);
     }
 
     #endregion
@@ -345,4 +350,16 @@ public sealed class RK4 : G4PKM
         pk4.RefreshChecksum();
         return pk4;
     }
+
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter4.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter4.LoadString(data, destBuffer);
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+        => StringConverter4.SetString(destBuffer, value, maxLength, Language, option);
+    public override int GetStringTerminatorIndex(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetTerminatorIndex(data, StringConverter4.Terminator);
+    public override int GetStringLength(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetStringLength(data, StringConverter4.Terminator);
+    public override int GetBytesPerChar() => 2;
 }

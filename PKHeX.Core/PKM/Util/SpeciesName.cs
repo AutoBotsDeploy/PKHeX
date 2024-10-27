@@ -24,8 +24,8 @@ public static class SpeciesName
         Util.GetSpeciesList("es"), // 6 (reserved for Gen3 KO?, unused)
         Util.GetSpeciesList("es"), // 7
         Util.GetSpeciesList("ko"), // 8
-        Util.GetSpeciesList("zh"), // 9 Simplified
-        Util.GetSpeciesList("zh2"), // 10 Traditional
+        Util.GetSpeciesList("zh-Hans"), // 9 Simplified
+        Util.GetSpeciesList("zh-Hant"), // 10 Traditional
     ];
 
     /// <summary>
@@ -62,8 +62,8 @@ public static class SpeciesName
         var result = new Dictionary<int, ushort>[names.Count];
         for (int i = 0; i < result.Length; i++)
         {
-            var dict = new Dictionary<int, ushort>();
             var speciesList = names[i];
+            var dict = new Dictionary<int, ushort>(speciesList.Count - 1);
             for (ushort species = 1; species < speciesList.Count; species++)
             {
                 var name = speciesList[species];
@@ -97,6 +97,8 @@ public static class SpeciesName
         return arr[species];
     }
 
+    public static bool IsApostropheFarfetchdLanguage(int language) => language is 2 or 4 or 7;
+
     /// <summary>
     /// Gets a Pokémon's default name for the desired language ID and generation.
     /// </summary>
@@ -107,9 +109,25 @@ public static class SpeciesName
     public static string GetSpeciesNameGeneration(ushort species, int language, byte generation) => generation switch
     {
         <= 4 => GetSpeciesName1234(species, language, generation),
+        5 when species is (int)Species.Farfetchd && IsApostropheFarfetchdLanguage(language) => "Farfetch'd", // Gen5 does not have slanted apostrophes.
         7 when language == (int) LanguageID.ChineseS => GetSpeciesName7ZH(species, language),
         _ => GetSpeciesName(species, language),
     };
+
+    /// <inheritdoc cref="GetSpeciesNameGeneration"/>
+    /// <summary>
+    /// Gets the initial Species name for HOME imports.
+    /// </summary>
+    public static string GetSpeciesNameImportHOME(ushort species, int language, byte generation)
+    {
+        // Default fetched names have the wrong apostrophes.
+        var result = GetSpeciesNameGeneration(species, language, generation);
+        if (species is (int)Species.Farfetchd && IsApostropheFarfetchdLanguage(language))
+            return "Farfetch'd";
+        if (species is (int)Species.Sirfetchd && IsApostropheFarfetchdLanguage(language))
+            return "Sirfetch'd";
+        return result;
+    }
 
     /// <summary>
     /// Gets a Pokémon's egg name for the desired language ID and generation.
@@ -149,16 +167,23 @@ public static class SpeciesName
 
         // Gen1/2 species names do not have spaces.
         if (generation >= 3)
+        {
+            // Gen3/4 use straight apostrophe instead of slanted apostrophe.
+            // The only Gen3/4 species with an apostrophe is Farfetch'd.
+            if (species is (int)Species.Farfetchd && IsApostropheFarfetchdLanguage(language))
+                result[^2] = '\'';
+
             return new string(result);
+        }
 
         // The only Gen1/2 species with a space is Mr. Mime; different period and no space.
         if (species == (int)Species.MrMime)
         {
-            int indexSpace = result.IndexOf(StringConverter12.SPH);
+            int indexSpace = result.IndexOf(StringConverter1.SPH);
             if (indexSpace > 0)
             {
                 // Gen1/2 uses a different period for MR.MIME than user input.
-                result[indexSpace - 1] = StringConverter12.DOT;
+                result[indexSpace - 1] = StringConverter1.DOT;
 
                 // Shift down. Strings have at most 1 occurrence of a space.
                 result[(indexSpace + 1)..].CopyTo(result[indexSpace..]);
@@ -196,7 +221,7 @@ public static class SpeciesName
     /// For a Gen7 species name request, return the old species name (hardcoded... yay).
     /// In an updated Gen8 game, the species nickname will automatically reset to the correct localization (on save/load ?), fixing existing entries.
     /// We don't differentiate patch revisions, just generation; Gen8 will return the latest localization.
-    /// Gen8 did revise CHT species names, but only for Barraskewda, Urshifu, and Zarude. These species are new (Gen8); we can just use the latest.
+    /// Gen8 did revise CHS species names, but only for Barraskewda, Urshifu, and Zarude. These species are new (Gen8); we can just use the latest.
     /// </remarks>
     private static string GetSpeciesName7ZH(ushort species, int language) => species switch
     {

@@ -129,8 +129,6 @@ public static class RibbonRules
         var species = pk.Species;
         if (species is (int)Greninja)
             return pk.Form == 0; // Disallow Ash-Greninja
-        if (SpeciesCategory.IsLegendary(species))
-            return false;
         if (SpeciesCategory.IsMythical(species))
             return false;
         return true;
@@ -180,8 +178,7 @@ public static class RibbonRules
         // These edge cases can't be obtained below level 50, unlike some wild Pokémon which can be encountered at different locations for lower levels.
         if (enc.LevelMin <= 50)
             return true;
-
-        return enc is not (IShadow3 or WC3);
+        return false;
     }
 
     /// <summary>

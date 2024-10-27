@@ -13,6 +13,7 @@ public partial class SAV_Misc5 : Form
 {
     private readonly SaveFile Origin;
     private readonly SAV5 SAV;
+    private readonly BattleSubwayPlay5 swp;
     private readonly BattleSubway5 sw;
 
     private bool editing;
@@ -20,11 +21,6 @@ public partial class SAV_Misc5 : Form
     private ComboBox[] cbr = null!;
     private int ofsFly;
     private int[] FlyDestC = null!;
-    private const int ofsLibPass = 0x212BC;
-    private const uint keyLibPass = 2010_04_06; // 0x132B536
-    private uint valLibPass;
-    private bool bLibPass;
-    private const int ofsKS = 0x25828;
 
     public SAV_Misc5(SAV5 sav)
     {
@@ -32,6 +28,7 @@ public partial class SAV_Misc5 : Form
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
         SAV = (SAV5)(Origin = sav).Clone();
 
+        swp = SAV.BattleSubwayPlay;
         sw = SAV.BattleSubway;
         ReadMain();
         LoadForest();
@@ -39,6 +36,7 @@ public partial class SAV_Misc5 : Form
         ReadEntralink();
         ReadMedals();
         ReadMusical();
+        ReadRecord();
     }
 
     private void B_Cancel_Click(object sender, EventArgs e) => Close();
@@ -49,23 +47,27 @@ public partial class SAV_Misc5 : Form
         SaveForest();
         SaveSubway();
         SaveEntralink();
+        SaveRecord();
 
         Forest.EnsureDecrypted(false);
         Origin.CopyChangesFrom(SAV);
         Close();
     }
 
-    private static ReadOnlySpan<uint> keyKS =>
-    [
-        // 0x34525, 0x11963,           // Selected City
-        // 0x31239, 0x15657, 0x49589,  // Selected Difficulty
-        // 0x94525, 0x81963, 0x38569,  // Selected Mystery Door
-        0x35691, 0x18256, 0x59389, 0x48292, 0x09892, // Obtained Keys(EasyMode, Challenge, City, Iron, Iceberg)
-        0x93389, 0x22843, 0x34771, 0xAB031, 0xB3818, // Unlocked(EasyMode, Challenge, City, Iron, Iceberg)
-    ];
+    private void ReadRecord()
+    {
+        var record = SAV.Records;
+        NUD_Record16.Maximum = Record5.Record16 - 1;
+        NUD_Record32.Maximum = Record5.Record32 - 1;
+        NUD_Record16V.Value = record.GetRecord16(0);
+        NUD_Record32V.Value = record.GetRecord32(0);
+        NUD_Record16V.ValueChanged += (_, _) => record.SetRecord16((int)NUD_Record16.Value, (ushort)NUD_Record16V.Value);
+        NUD_Record32V.ValueChanged += (_, _) => record.SetRecord32((int)NUD_Record32.Value, (uint)NUD_Record32V.Value);
+        NUD_Record16.ValueChanged  += (_, _) => NUD_Record16V.Value = record.GetRecord16((int)NUD_Record16.Value);
+        NUD_Record32.ValueChanged  += (_, _) => NUD_Record32V.Value = record.GetRecord32((int)NUD_Record32.Value);
+    }
 
-    private uint[] valKS = null!;
-    private bool[] bKS = null!;
+    private void SaveRecord() => SAV.Records.EndAccess();
 
     private void ReadMain()
     {
@@ -143,7 +145,7 @@ public partial class SAV_Misc5 : Form
                 cbr[i].Items.Clear();
                 cbr[i].InitializeBinding();
                 cbr[i].DataSource = new BindingSource(states.Where(v => v.Value >= 2 || v.Value == c).ToList(), null);
-                cbr[i].SelectedValue = c;
+                cbr[i].SelectedValue = (int)c;
             }
 
             // Roamer status
@@ -163,30 +165,25 @@ public partial class SAV_Misc5 : Form
             }
 
             // LibertyPass
-            valLibPass = keyLibPass ^ SAV.ID32;
-            bLibPass = ReadUInt32LittleEndian(SAV.Data.AsSpan(ofsLibPass)) == valLibPass;
-            CHK_LibertyPass.Checked = bLibPass;
+            CHK_LibertyPass.Checked = bw.Misc.IsLibertyTicketActivated;
         }
-        else if (SAV is SAV5B2W2)
+        else if (SAV is SAV5B2W2 b2w2)
         {
             TC_Misc.TabPages.Remove(TAB_BWCityForest);
             GB_Roamer.Visible = CHK_LibertyPass.Visible = false;
+
+            var keys = b2w2.Keys;
             // KeySystem
             string[] KeySystemA =
             [
                 "Obtain EasyKey", "Obtain ChallengeKey", "Obtain CityKey", "Obtain IronKey", "Obtain IcebergKey",
-                "Unlock EasyMode", "Unlock ChallengeMode", "Unlock City", "Unlock IronChamber",
-                "Unlock IcebergChamber",
+                "Unlock EasyMode", "Unlock ChallengeMode", "Unlock City", "Unlock IronChamber", "Unlock IcebergChamber",
             ];
-            uint KSID = ReadUInt32LittleEndian(SAV.Data.AsSpan(ofsKS + 0x34));
-            valKS = new uint[keyKS.Length];
-            bKS = new bool[keyKS.Length];
             CLB_KeySystem.Items.Clear();
-            for (int i = 0; i < valKS.Length; i++)
+            for (int i = 0; i < 5; i++)
             {
-                valKS[i] = keyKS[i] ^ KSID;
-                bKS[i] = ReadUInt32LittleEndian(SAV.Data.AsSpan(ofsKS + (i << 2))) == valKS[i];
-                CLB_KeySystem.Items.Add(KeySystemA[i], bKS[i]);
+                CLB_KeySystem.Items.Add(KeySystemA[i], keys.GetIsKeyObtained((KeyType5)i));
+                CLB_KeySystem.Items.Add(KeySystemA[i + 5], keys.GetIsKeyUnlocked((KeyType5)i));
             }
         }
         else
@@ -257,19 +254,23 @@ public partial class SAV_Misc5 : Form
             }
 
             // LibertyPass
-            if (CHK_LibertyPass.Checked != bLibPass)
-                WriteUInt32LittleEndian(SAV.Data.AsSpan(ofsLibPass), bLibPass ? 0u : valLibPass);
+            if (CHK_LibertyPass.Checked != bw.Misc.IsLibertyTicketActivated)
+                bw.Misc.IsLibertyTicketActivated = CHK_LibertyPass.Checked;
         }
-        else if (SAV is SAV5B2W2)
+        else if (SAV is SAV5B2W2 b2w2)
         {
             // KeySystem
-            for (int i = 0; i < CLB_KeySystem.Items.Count; i++)
+            var keys = b2w2.Keys;
+            for (int i = 0; i < 5; i++)
             {
-                if (CLB_KeySystem.GetItemChecked(i) == bKS[i])
-                    continue;
-                var dest = SAV.Data.AsSpan(ofsKS + (i << 2));
-                var value = bKS[i] ? 0u : valKS[i];
-                WriteUInt32LittleEndian(dest, value);
+                var index = i * 2;
+                var obtain = CLB_KeySystem.GetItemChecked(index);
+                if (obtain != keys.GetIsKeyObtained((KeyType5)i))
+                    keys.SetIsKeyObtained((KeyType5)i, obtain);
+
+                var unlock = CLB_KeySystem.GetItemChecked(index + 1);
+                if (unlock != keys.GetIsKeyUnlocked((KeyType5)i))
+                    keys.SetIsKeyUnlocked((KeyType5)i, unlock);
             }
         }
     }
@@ -298,7 +299,7 @@ public partial class SAV_Misc5 : Form
         {
             var pass = (Entralink5B2W2)entree;
             var ppv = Enum.GetValues<PassPower5>();
-            var ppn = Enum.GetNames<PassPower5>();
+            var ppn = WinFormsTranslator.GetEnumTranslation<PassPower5>(Main.CurrentLanguage);
             var PassPowerB = new ComboItem[ppv.Length];
             for (int i = 0; i < ppv.Length; i++)
                 PassPowerB[i] = new ComboItem(ppn[i], (int)ppv[i]);
@@ -322,7 +323,7 @@ public partial class SAV_Misc5 : Form
             NUD_EntreeWhiteEXP.SetValueClamped(block.WhiteEXP);
             NUD_EntreeBlackEXP.SetValueClamped(block.BlackEXP);
 
-            string[] FMTitles = Enum.GetNames<Funfest5Mission>();
+            string[] FMTitles = WinFormsTranslator.GetEnumTranslation<Funfest5Mission>(Main.CurrentLanguage);
             LB_FunfestMissions.Items.Clear();
             LB_FunfestMissions.Items.AddRange(FMTitles);
 
@@ -508,6 +509,7 @@ public partial class SAV_Misc5 : Form
         CB_Species.InitializeBinding();
         CB_Move.InitializeBinding();
         CB_Areas.InitializeBinding();
+        CB_Gender.InitializeBinding();
 
         var filtered = GameInfo.FilteredSources;
         CB_Species.DataSource = new BindingSource(filtered.Species, null);
@@ -546,7 +548,7 @@ public partial class SAV_Misc5 : Form
         SetForms(current);
         SetGenders(current);
         CB_Move.SelectedValue = (int)current.Move;
-        CB_Gender.SelectedValue = current.Gender;
+        CB_Gender.SelectedValue = (int)current.Gender;
         CB_Form.SelectedIndex = CB_Form.Items.Count <= current.Form ? 0 : current.Form;
         NUD_Animation.SetValueClamped(current.Animation);
         CurrentSlot = current;
@@ -606,7 +608,6 @@ public partial class SAV_Misc5 : Form
 
     private void SetGenders(EntreeSlot slot)
     {
-        CB_Gender.InitializeBinding();
         CB_Gender.DataSource = new BindingSource(GetGenderChoices(slot.Species), null);
     }
 
@@ -636,6 +637,8 @@ public partial class SAV_Misc5 : Form
 
     private static List<ComboItem> GetGenderChoices(ushort species)
     {
+        if (species == 0)
+            return [new("-", 0)];
         var pi = PersonalTable.B2W2[species];
         var list = new List<ComboItem>();
         if (pi.Genderless)
@@ -656,13 +659,16 @@ public partial class SAV_Misc5 : Form
         bool hasForms = PersonalTable.B2W2[slot.Species].HasForms || slot.Species == (int)Species.Mothim;
         L_Form.Visible = CB_Form.Enabled = CB_Form.Visible = hasForms;
 
-        CB_Form.InitializeBinding();
         var list = FormConverter.GetFormList(slot.Species, GameInfo.Strings.types, GameInfo.Strings.forms, Main.GenderSymbols, SAV.Context);
         CB_Form.DataSource = new BindingSource(list, null);
     }
 
     private void ReadSubway()
     {
+        // Running Battle Subway Data
+        NUD_CurrentType.SetValueClamped(swp.CurrentType);
+        NUD_CurrentBattle.SetValueClamped(swp.CurrentBattle);
+
         // Save Normal Checks
         CHK_Subway0.Checked = sw.Flag0;
         CHK_Subway1.Checked = sw.Flag1;
@@ -674,6 +680,27 @@ public partial class SAV_Misc5 : Form
         CHK_SuperDouble.Checked = sw.SuperDouble;
         CHK_SuperMulti.Checked = sw.SuperMulti;
         CHK_Subway7.Checked = sw.Flag7;
+
+        // NPC Met Flag
+        CHK_SWNPCMet.Checked = sw.NPCMet;
+
+        // Current Run Checks
+        CHK_SingleSet.Checked = sw.SingleSet == (sw.SinglePast / 7 + 1);
+        L_SinglePast.Text = CHK_SingleSet.Checked ? "Current" : "Past";
+        CHK_DoubleSet.Checked = sw.DoubleSet == (sw.DoublePast / 7 + 1);
+        L_DoublePast.Text = CHK_DoubleSet.Checked ? "Current" : "Past";
+        CHK_MultiNPCSet.Checked = sw.MultiNPCSet == (sw.MultiNPCPast / 7 + 1);
+        L_MultiNpcPast.Text = CHK_MultiNPCSet.Checked ? "Current" : "Past";
+        CHK_MultiFriendsSet.Checked = sw.MultiFriendsSet == (sw.MultiFriendsPast / 7 + 1);
+        L_MultiFriendsPast.Text = CHK_MultiFriendsSet.Checked ? "Current" : "Past";
+        CHK_SuperSingleSet.Checked = sw.SuperSingleSet == (sw.SuperSinglePast / 7 + 1);
+        L_SSinglePast.Text = CHK_SuperSingleSet.Checked ? "Current" : "Past";
+        CHK_SuperDoubleSet.Checked = sw.SuperDoubleSet == (sw.SuperDoublePast / 7 + 1);
+        L_SDoublePast.Text = CHK_SuperDoubleSet.Checked ? "Current" : "Past";
+        CHK_SuperMultiNPCSet.Checked = sw.SuperMultiNPCSet == (sw.SuperMultiNPCPast / 7 + 1);
+        L_SMultiNpcPast.Text = CHK_SuperMultiNPCSet.Checked ? "Current" : "Past";
+        CHK_SuperMultiFriendsSet.Checked = sw.SuperMultiFriendsSet == (sw.SuperMultiFriendsPast / 7 + 1);
+        L_SMultiFriendsPast.Text = CHK_SuperMultiFriendsSet.Checked ? "Current" : "Past";
 
         // Normal
         // Single
@@ -712,6 +739,10 @@ public partial class SAV_Misc5 : Form
 
     private void SaveSubway()
     {
+        // Running Battle Subway Data
+        swp.CurrentType = (int)NUD_CurrentType.Value;
+        swp.CurrentBattle = (int)NUD_CurrentBattle.Value;
+
         // Save Normal Checks
         sw.Flag0 = CHK_Subway0.Checked;
         sw.Flag1 = CHK_Subway1.Checked;
@@ -723,6 +754,9 @@ public partial class SAV_Misc5 : Form
         sw.SuperDouble = CHK_SuperDouble.Checked;
         sw.SuperMulti = CHK_SuperMulti.Checked;
         sw.Flag7 = CHK_Subway7.Checked;
+
+        // NPC Met Flag
+        sw.NPCMet = CHK_SWNPCMet.Checked;
 
         // Normal
         // Single
@@ -757,6 +791,16 @@ public partial class SAV_Misc5 : Form
         // Multi Friends
         sw.SuperMultiFriendsPast = (int)NUD_SMultiFriendsPast.Value;
         sw.SuperMultiFriendsRecord = (int)NUD_SMultiFriendsRecord.Value;
+
+        // Current Run Checks
+        sw.SingleSet = (CHK_SingleSet.Checked ? sw.SinglePast / 7 + 1 : 0);
+        sw.DoubleSet = (CHK_DoubleSet.Checked ? sw.DoublePast / 7 + 1 : 0);
+        sw.MultiNPCSet = (CHK_MultiNPCSet.Checked ? sw.MultiNPCPast / 7 + 1 : 0);
+        sw.MultiFriendsSet = (CHK_MultiFriendsSet.Checked ? sw.MultiFriendsPast / 7 + 1 : 0);
+        sw.SuperSingleSet = (CHK_SuperSingleSet.Checked ? sw.SuperSinglePast / 7 + 1 : 0);
+        sw.SuperDoubleSet = (CHK_SuperDoubleSet.Checked ? sw.SuperDoublePast / 7 + 1 : 0);
+        sw.SuperMultiNPCSet = (CHK_SuperMultiNPCSet.Checked ? sw.SuperMultiNPCPast / 7 + 1 : 0);
+        sw.SuperMultiFriendsSet = (CHK_SuperMultiFriendsSet.Checked ? sw.SuperMultiFriendsPast / 7 + 1 : 0);
     }
 
     private const string ForestCityBinFilter = "Forest City Bin|*.fc5";
@@ -799,6 +843,7 @@ public partial class SAV_Misc5 : Form
     }
 
     private readonly string[] MedalNames = Util.GetStringList("medals", Main.CurrentLanguage);
+    private readonly string[] MedalTypeNames = Util.GetStringList("medal_types", Main.CurrentLanguage);
 
     private void ReadMedals()
     {
@@ -814,7 +859,10 @@ public partial class SAV_Misc5 : Form
     {
         if (SAV is SAV5B2W2 b2w2)
         {
-            var medal = b2w2.Medals[CB_CurrentMedal.SelectedIndex];
+            var index = CB_CurrentMedal.SelectedIndex;
+            var medal = b2w2.Medals[index];
+            var type = MedalList5.GetMedalType(index);
+            TB_MedalType.Text = MedalTypeNames[(int)type];
             CB_MedalState.SelectedIndex = (int)medal.State;
             if (medal.CanHaveDate)
             {
@@ -895,6 +943,46 @@ public partial class SAV_Misc5 : Form
     private void CHK_PropObtained_CheckedChanged(object sender, EventArgs e)
     {
         SAV.Musical.SetHasProp(CB_Prop.SelectedIndex, CHK_PropObtained.Checked);
+    }
+
+    private void CHK_SingleSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_SinglePast.Text = CHK_SingleSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_DoubleSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_DoublePast.Text = CHK_DoubleSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_MultiNPCSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_MultiNpcPast.Text = CHK_MultiNPCSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_MultiFriendsSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_MultiFriendsPast.Text = CHK_MultiFriendsSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_SuperSingleSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_SSinglePast.Text = CHK_SuperSingleSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_SuperDoubleSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_SDoublePast.Text = CHK_SuperDoubleSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_SuperMultiNPCSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_SMultiNpcPast.Text = CHK_SuperMultiNPCSet.Checked ? "Current" : "Past";
+    }
+
+    private void CHK_SuperMultiFriendsSet_CheckedChanged(object sender, EventArgs e)
+    {
+        L_SMultiFriendsPast.Text = CHK_SuperMultiFriendsSet.Checked ? "Current" : "Past";
     }
 
     private void B_UnlockAllProps_Click(object sender, EventArgs e)
