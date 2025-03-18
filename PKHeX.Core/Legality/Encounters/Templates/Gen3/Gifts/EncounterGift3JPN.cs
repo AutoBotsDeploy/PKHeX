@@ -6,7 +6,7 @@ namespace PKHeX.Core;
 /// Generation 3 Event Gift
 /// </summary>
 /// <remarks>Specialized for the PCJP gift distribution machines.</remarks>
-public sealed class EncounterGift3JPN(ushort Species, Distribution3JPN Distribution)
+public sealed record EncounterGift3JPN(ushort Species, Distribution3JPN Distribution)
     : IEncounterable, IEncounterMatch, IRandomCorrelationEvent3, IFixedTrainer
 {
     public ushort Species { get; } = Species;
@@ -77,15 +77,13 @@ public sealed class EncounterGift3JPN(ushort Species, Distribution3JPN Distribut
         while (true)
         {
             var pid = CommonEvent3.GetAntishiny(ref seed, idXor);
-            if (criteria.IsSpecifiedNature() && criteria.Nature != (Nature)(pid % 25))
+            if (criteria.IsSpecifiedNature() && !criteria.IsSatisfiedNature((Nature)(pid % 25)))
                 continue; // try again
-            var gender = EntityGender.GetFromPIDAndRatio(pid, gr);
-            if (!criteria.IsGenderSatisfied(gender))
+            if (criteria.IsSpecifiedGender() && !criteria.IsSatisfiedGender(EntityGender.GetFromPIDAndRatio(pid, gr)))
                 continue;
 
-            PIDGenerator.SetIVsFromSeedSequentialLCRNG(ref seed, pk);
-
             pk.PID = pid;
+            pk.IV32 = PIDGenerator.GetIVsFromSeedSequentialLCRNG(ref seed);
             pk.RefreshAbility((int)(pid & 1));
             pk.OriginalTrainerGender = (byte)GetGender(LCRNG.Next16(ref seed));
             return;
@@ -98,7 +96,10 @@ public sealed class EncounterGift3JPN(ushort Species, Distribution3JPN Distribut
     public bool IsMatchExact(PKM pk, EvoCriteria evo)
     {
         // Gen3 Version MUST match.
-        if (Version != 0 && !Version.Contains(pk.Version))
+        if (pk.Version is not GameVersion.R)
+            return false;
+
+        if (pk.IsEgg)
             return false;
 
         if (pk.SID16 != 0)

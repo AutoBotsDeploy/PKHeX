@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using static System.Buffers.Binary.BinaryPrimitives;
@@ -27,43 +28,25 @@ public static class SaveUtil
     public const int SIZE_G9_2   = 0x31A2D0; // 1.0.0 -> 1.1.0
 
     // 1.2.0: add 0x2C9F; clean upgrade (1.1.0->1.2.0 is same as *1.2.0)
-    public const int SIZE_G9_3A0 = 0x31CF7C; // 1.0.0 -> 1.0.1 -> 1.1.0 -> 1.2.0 AM
-    public const int SIZE_G9_3A1 = 0x31CA6F; //          1.0.1 -> 1.1.0 -> 1.2.0 AM
-    public const int SIZE_G9_3B0 = SIZE_G9_3A0 - 0xD; // BM
     public const int SIZE_G9_3B1 = SIZE_G9_3A1 - 0xD; // BM
-    public const int SIZE_G9_3G0 = SIZE_G9_3A0 + 0x5; // GO
-    public const int SIZE_G9_3G1 = SIZE_G9_3A1 + 0x5; // GO
-    public const int SIZE_G9_3P0 = SIZE_G9_3B0 + 0x5; // GO (before Multiplayer)
     public const int SIZE_G9_3P1 = SIZE_G9_3B1 + 0x5; // GO (before Multiplayer)
+    public const int SIZE_G9_3A1 = 0x31CA6F; //          1.0.1 -> 1.1.0 -> 1.2.0 AM
+    public const int SIZE_G9_3G1 = SIZE_G9_3A1 + 0x5; // GO
+
+    public const int SIZE_G9_3B0 = SIZE_G9_3A0 - 0xD; // BM
+    public const int SIZE_G9_3P0 = SIZE_G9_3B0 + 0x5; // GO (before Multiplayer)
+    public const int SIZE_G9_3A0 = 0x31CF7C; // 1.0.0 -> 1.0.1 -> 1.1.0 -> 1.2.0 AM
+    public const int SIZE_G9_3G0 = SIZE_G9_3A0 + 0x5; // GO
 
     // 2.0.1 (2.0.0 skipped): Teal Mask
-    public const int SIZE_G9_DLC1_B = 0x4329A0;
-    public const int SIZE_G9_DLC1_T = 0x4329A5; // +5
-    public const int SIZE_G9_DLC1_0 = 0x4329A9; // +4
-    public const int SIZE_G9_DLC1_E = 0x4329AD; // +1
-    public const int SIZE_G9_DLC1_1 = 0x4329AE; // +1
-    public const int SIZE_G9_DLC1_D = 0x4329B2; // +4
-    public const int SIZE_G9_DLC1_F = 0x4329B3; // +1
-    public const int SIZE_G9_DLC1_A = 0x4329B6; // +3
-    public const int SIZE_G9_DLC1_Q = 0x4329B7; // +1
-    public const int SIZE_G9_DLC1_2 = 0x4329BB; // +5
-    public const int SIZE_G9_DLC1_U = 0x4329BC; // +1
-    public const int SIZE_G9_DLC1_W = 0x4329BF; // +4
-    public const int SIZE_G9_DLC1_3 = 0x4329C0; // +5
-    public const int SIZE_G9_DLC1_9 = 0x4329C4;
-    public const int SIZE_G9_DLC1_V = 0x4329C9;
-    public const int SIZE_G9_DLC1_4 = 0x432EB6;
-    public const int SIZE_G9_DLC1_C = 0x432EBB; // +5
-    public const int SIZE_G9_DLC1_5 = 0x432EBF; // +4
-    public const int SIZE_G9_DLC1_H = 0x432EC0; // +1
-    public const int SIZE_G9_DLC1_6 = 0x432EC3; // +4
-    public const int SIZE_G9_DLC1_G = 0x432EC4; // +1
-    public const int SIZE_G9_DLC1_7 = 0x432EC8; // +5
-    public const int SIZE_G9_DLC1_I = 0x432EC9; // +1
-    public const int SIZE_G9_DLC1_R = 0x432ECC; // +1
-    public const int SIZE_G9_DLC1_8 = 0x432ECD; // +5
-    public const int SIZE_G9_DLC1_Y = 0x432ED1; // +1
-    public const int SIZE_G9_DLC1_Z = 0x432ED6; // +5
+    // 3.0.0: The Indigo Disk
+    // Both save file sizes have a ton of optional blocks, so just accept a range (min/max) and rely on the hash validity.
+    private const int SIZE_G9_DLC1_MIN1 = 0x4329A0;
+    private const int SIZE_G9_DLC1_MAX1 = 0x4329C9;
+    private const int SIZE_G9_DLC1_MIN2 = 0x432EB6;
+    private const int SIZE_G9_DLC1_MAX2 = 0x432ED6;
+    private const int SIZE_G9_202 = 0xC8E; // Add 2 blocks (1 obj 0xC80, 1 bool) = 4{key}1{obj}4{len} + 4{key}1{boolT/boolF}
+    private const int SIZE_G9_300 = 0x83AD;
 
     public const int SIZE_G8LA = 0x136DDE;
     public const int SIZE_G8LA_1 = 0x13AD06;
@@ -73,11 +56,11 @@ public static class SaveUtil
     public const int SIZE_G8BDSP_2 = 0xEED8C;
     public const int SIZE_G8BDSP_3 = 0xEF0A4;
 
-    public const int SIZE_G8SWSH = 0x1716B3; // 1.0
-    public const int SIZE_G8SWSH_1 = 0x17195E; // 1.0 -> 1.1
-    public const int SIZE_G8SWSH_2 = 0x180B19; // 1.0 -> 1.1 -> 1.2
+    public const int SIZE_G8SWSH    = 0x1716B3; // 1.0
+    public const int SIZE_G8SWSH_1  = 0x17195E; // 1.0 -> 1.1
+    public const int SIZE_G8SWSH_2  = 0x180B19; // 1.0 -> 1.1 -> 1.2
     public const int SIZE_G8SWSH_2B = 0x180AD0; // 1.0 -> 1.2
-    public const int SIZE_G8SWSH_3 = 0x1876B1; // 1.0 -> 1.1 -> 1.2 -> 1.3
+    public const int SIZE_G8SWSH_3  = 0x1876B1; // 1.0 -> 1.1 -> 1.2 -> 1.3
     public const int SIZE_G8SWSH_3A = 0x187693; // 1.0 -> 1.1 -> 1.3
     public const int SIZE_G8SWSH_3B = 0x187668; // 1.0 -> 1.2 -> 1.3
     public const int SIZE_G8SWSH_3C = 0x18764A; // 1.0 -> 1.3
@@ -137,76 +120,39 @@ public static class SaveUtil
     ];
 #endif
 
-    private const int SIZE_G9_202 = 0xC8E; // Add 2 blocks (1 obj 0xC80, 1 bool) = 4{key}1{obj}4{len} + 4{key}1{boolT/boolF}
-    private const int SIZE_G9_300 = 0x83AD;
+    private static bool IsSizeGen9SV(int length) => length is
+        SIZE_G9_0 or SIZE_G9_0a or
+        SIZE_G9_1 or SIZE_G9_1a or SIZE_G9_1A or SIZE_G9_1Aa or SIZE_G9_1Ba or SIZE_G9_1Ab or
+        SIZE_G9_2 or
+        SIZE_G9_3 or
+        SIZE_G9_3A0 or SIZE_G9_3A1 or SIZE_G9_3B0 or SIZE_G9_3B1 or
+        SIZE_G9_3G0 or SIZE_G9_3G1 or SIZE_G9_3P0 or SIZE_G9_3P1 or
+        // tons of optional blocks, just rely on range(+) and hash validity
+        (>= SIZE_G9_DLC1_MIN1 and <= SIZE_G9_DLC1_MAX1 + 100) or
+        (>= SIZE_G9_DLC1_MIN2 and <= SIZE_G9_DLC1_MAX2 + 100) or
+        (>= SIZE_G9_DLC1_MIN1 + SIZE_G9_202 and <= SIZE_G9_DLC1_MAX1 + SIZE_G9_202 + 100) or
+        (>= SIZE_G9_DLC1_MIN2 + SIZE_G9_202 and <= SIZE_G9_DLC1_MAX2 + SIZE_G9_202 + 100) or
+        (>= SIZE_G9_DLC1_MIN1 + SIZE_G9_300 and <= SIZE_G9_DLC1_MAX1 + SIZE_G9_300 + 100) or
+        (>= SIZE_G9_DLC1_MIN2 + SIZE_G9_300 and <= SIZE_G9_DLC1_MAX2 + SIZE_G9_300 + 100)
+    ;
 
-    private static readonly HashSet<long> SizesSV =
-    [
-        SIZE_G9_0, SIZE_G9_0a,
-        SIZE_G9_1, SIZE_G9_1a,
-        SIZE_G9_1A, SIZE_G9_1Aa,
-        SIZE_G9_1Ba, SIZE_G9_1Ab,
-        SIZE_G9_2, SIZE_G9_3,
+    private static bool IsSizeGen8SWSH(int length) => length is SIZE_G8SWSH
+        or SIZE_G8SWSH_1
+        or SIZE_G8SWSH_2 or SIZE_G8SWSH_2B
+        or SIZE_G8SWSH_3 or SIZE_G8SWSH_3A or SIZE_G8SWSH_3B or SIZE_G8SWSH_3C;
 
-        SIZE_G9_3A0, SIZE_G9_3A1,
-        SIZE_G9_3B0, SIZE_G9_3B1,
-        SIZE_G9_3G0, SIZE_G9_3G1,
-        SIZE_G9_3P0, SIZE_G9_3P1,
+    private static bool IsSizeGen2(int length) => length is SIZE_G2RAW_U or SIZE_G2RAW_J;
 
-        SIZE_G9_DLC1_0, SIZE_G9_DLC1_0 + SIZE_G9_202, SIZE_G9_DLC1_0 + SIZE_G9_300,
-        SIZE_G9_DLC1_1, SIZE_G9_DLC1_1 + SIZE_G9_202, SIZE_G9_DLC1_1 + SIZE_G9_300,
-        SIZE_G9_DLC1_2, SIZE_G9_DLC1_2 + SIZE_G9_202, SIZE_G9_DLC1_2 + SIZE_G9_300,
-        SIZE_G9_DLC1_3, SIZE_G9_DLC1_3 + SIZE_G9_202, SIZE_G9_DLC1_3 + SIZE_G9_300,
-        SIZE_G9_DLC1_4, SIZE_G9_DLC1_4 + SIZE_G9_202, SIZE_G9_DLC1_4 + SIZE_G9_300,
-        SIZE_G9_DLC1_5, SIZE_G9_DLC1_5 + SIZE_G9_202, SIZE_G9_DLC1_5 + SIZE_G9_300,
-        SIZE_G9_DLC1_6, SIZE_G9_DLC1_6 + SIZE_G9_202, SIZE_G9_DLC1_6 + SIZE_G9_300,
-        SIZE_G9_DLC1_7, SIZE_G9_DLC1_7 + SIZE_G9_202, SIZE_G9_DLC1_7 + SIZE_G9_300,
-        SIZE_G9_DLC1_8, SIZE_G9_DLC1_8 + SIZE_G9_202, SIZE_G9_DLC1_8 + SIZE_G9_300,
-        SIZE_G9_DLC1_9, SIZE_G9_DLC1_9 + SIZE_G9_202, SIZE_G9_DLC1_9 + SIZE_G9_300,
-        SIZE_G9_DLC1_A, SIZE_G9_DLC1_A + SIZE_G9_202, SIZE_G9_DLC1_A + SIZE_G9_300,
-        SIZE_G9_DLC1_B, SIZE_G9_DLC1_B + SIZE_G9_202, SIZE_G9_DLC1_B + SIZE_G9_300,
-        SIZE_G9_DLC1_C, SIZE_G9_DLC1_C + SIZE_G9_202, SIZE_G9_DLC1_C + SIZE_G9_300,
-        SIZE_G9_DLC1_D, SIZE_G9_DLC1_D + SIZE_G9_202, SIZE_G9_DLC1_D + SIZE_G9_300,
-        SIZE_G9_DLC1_E, SIZE_G9_DLC1_E + SIZE_G9_202, SIZE_G9_DLC1_E + SIZE_G9_300,
-        SIZE_G9_DLC1_F, SIZE_G9_DLC1_F + SIZE_G9_202, SIZE_G9_DLC1_F + SIZE_G9_300,
-        SIZE_G9_DLC1_G, SIZE_G9_DLC1_G + SIZE_G9_202, SIZE_G9_DLC1_G + SIZE_G9_300,
-        SIZE_G9_DLC1_H, SIZE_G9_DLC1_H + SIZE_G9_202, SIZE_G9_DLC1_H + SIZE_G9_300,
-        SIZE_G9_DLC1_I, SIZE_G9_DLC1_I + SIZE_G9_202, SIZE_G9_DLC1_I + SIZE_G9_300,
-        SIZE_G9_DLC1_Q, SIZE_G9_DLC1_Q + SIZE_G9_202, SIZE_G9_DLC1_Q + SIZE_G9_300,
-        SIZE_G9_DLC1_W, SIZE_G9_DLC1_W + SIZE_G9_202, SIZE_G9_DLC1_W + SIZE_G9_300,
-        SIZE_G9_DLC1_R, SIZE_G9_DLC1_R + SIZE_G9_202, SIZE_G9_DLC1_R + SIZE_G9_300,
-        SIZE_G9_DLC1_T, SIZE_G9_DLC1_T + SIZE_G9_202, SIZE_G9_DLC1_T + SIZE_G9_300,
-        SIZE_G9_DLC1_Y, SIZE_G9_DLC1_Y + SIZE_G9_202, SIZE_G9_DLC1_Y + SIZE_G9_300,
-        SIZE_G9_DLC1_U, SIZE_G9_DLC1_U + SIZE_G9_202, SIZE_G9_DLC1_U + SIZE_G9_300,
-        SIZE_G9_DLC1_V, SIZE_G9_DLC1_V + SIZE_G9_202, SIZE_G9_DLC1_V + SIZE_G9_300,
-        SIZE_G9_DLC1_Z, SIZE_G9_DLC1_Z + SIZE_G9_202, SIZE_G9_DLC1_Z + SIZE_G9_300,
-    ];
-
-    private static readonly HashSet<long> SizesSWSH =
-    [
-        SIZE_G8SWSH, SIZE_G8SWSH_1, SIZE_G8SWSH_2, SIZE_G8SWSH_2B, SIZE_G8SWSH_3, SIZE_G8SWSH_3A, SIZE_G8SWSH_3B, SIZE_G8SWSH_3C,
-    ];
-
-    private static readonly HashSet<long> SizesGen2 =
-    [
-        SIZE_G2RAW_U, SIZE_G2RAW_J,
-    ];
-
-    private static readonly HashSet<long> Sizes =
-    [
-        ..SizesGen2, ..SizesSWSH, ..SizesSV,
-        SIZE_G8LA, SIZE_G8LA_1, SIZE_G8BDSP, SIZE_G8BDSP_1, SIZE_G8BDSP_2, SIZE_G8BDSP_3,
-        // SizesSWSH covers Gen8 sizes since there's so many
-        SIZE_G7SM, SIZE_G7USUM, SIZE_G7GG,
-        SIZE_G6XY, SIZE_G6ORAS, SIZE_G6ORASDEMO,
-        SIZE_G5RAW, SIZE_G5BW, SIZE_G5B2W2,
-        SIZE_G4BR, SIZE_G4RAW,
-        SIZE_G3BOX, SIZE_G3COLO, SIZE_G3XD, SIZE_G3RAW, SIZE_G3RAWHALF,
-        // SizesGen2 covers Gen2 sizes since there's so many
-        SIZE_G1RAW,
-
-        SIZE_G7BANK, SIZE_G4BANK, SIZE_G4RANCH, SIZE_G4RANCH_PLAT,
-    ];
+    private static bool IsSizeCommonFixed(int length) => length is
+        SIZE_G8LA or SIZE_G8LA_1
+        or SIZE_G8BDSP or SIZE_G8BDSP_1 or SIZE_G8BDSP_2 or SIZE_G8BDSP_3
+        or SIZE_G7SM or SIZE_G7USUM or SIZE_G7GG
+        or SIZE_G6XY or SIZE_G6ORAS or SIZE_G6ORASDEMO
+        or SIZE_G5RAW or SIZE_G5BW or SIZE_G5B2W2
+        or SIZE_G4BR
+        or SIZE_G3COLO or SIZE_G3XD or SIZE_G3RAW or SIZE_G3RAWHALF
+        or SIZE_G2RAW_U
+        or SIZE_G7BANK or SIZE_G4BANK or SIZE_G4RANCH or SIZE_G4RANCH_PLAT;
 
     /// <summary>Determines the type of the provided save data.</summary>
     /// <param name="data">Save data of which to determine the origins of</param>
@@ -272,12 +218,12 @@ public static class SaveUtil
     /// </summary>
     /// <param name="data">Save data</param>
     /// <param name="offset">Offset the list starts at</param>
-    /// <param name="listCount">Max count of Pokémon in the list</param>
+    /// <param name="maxCount">Max count of Pokémon in the list</param>
     /// <returns>True if a valid list, False otherwise</returns>
-    private static bool IsG12ListValid(ReadOnlySpan<byte> data, int offset, int listCount)
+    private static bool IsG12ListValid(ReadOnlySpan<byte> data, int offset, [ConstantExpected] byte maxCount)
     {
-        byte num_entries = data[offset];
-        return num_entries <= listCount && data[offset + 1 + num_entries] == 0xFF;
+        byte count = data[offset];
+        return count <= maxCount && data[offset + 1 + count] == 0xFF;
     }
 
     /// <summary>Checks to see if the data belongs to a Gen1 save</summary>
@@ -317,7 +263,7 @@ public static class SaveUtil
     /// <returns>Version Identifier or Invalid if type cannot be determined.</returns>
     internal static GameVersion GetIsG2SAV(ReadOnlySpan<byte> data)
     {
-        if (!SizesGen2.Contains(data.Length))
+        if (!IsSizeGen2(data.Length))
             return Invalid;
 
         // Check if it's not an International, Japanese, or Korean save file
@@ -591,7 +537,7 @@ public static class SaveUtil
     /// <returns>Version Identifier or Invalid if type cannot be determined.</returns>
     private static GameVersion GetIsG8SAV(ReadOnlySpan<byte> data)
     {
-        if (!SizesSWSH.Contains(data.Length))
+        if (!IsSizeGen8SWSH(data.Length))
             return Invalid;
 
         return SwishCrypto.GetIsHashValid(data) ? SWSH : Invalid;
@@ -622,7 +568,7 @@ public static class SaveUtil
     /// <returns>Version Identifier or Invalid if type cannot be determined.</returns>
     private static GameVersion GetIsG9SAV(ReadOnlySpan<byte> data)
     {
-        if (!SizesSV.Contains(data.Length))
+        if (!IsSizeGen9SV(data.Length))
             return Invalid;
 
         return SwishCrypto.GetIsHashValid(data) ? SV : Invalid;
@@ -673,13 +619,13 @@ public static class SaveUtil
                 continue;
 
             var custom = h.ReadSaveFile(data, path);
-            if (custom != null)
+            if (custom is not null)
                 return custom;
         }
 #endif
 
         var sav = GetVariantSAVInternal(data);
-        if (sav != null)
+        if (sav is not null)
             return sav;
 
 #if !EXCLUDE_EMULATOR_FORMATS
@@ -689,11 +635,11 @@ public static class SaveUtil
                 continue;
 
             var split = h.TrySplit(data);
-            if (split == null)
+            if (split is null)
                 continue;
 
             sav = GetVariantSAVInternal(split.Data);
-            if (sav == null)
+            if (sav is null)
                 continue;
 
             var meta = sav.Metadata;
@@ -772,7 +718,7 @@ public static class SaveUtil
             return null;
 
         var split = DolphinHandler.TrySplit(memory.Span);
-        var data = split != null ? split.Data : memory.ToArray();
+        var data = split is not null ? split.Data : memory.ToArray();
 
         SaveFile sav;
         switch (memCard.SelectedGameVersion)
@@ -786,7 +732,7 @@ public static class SaveUtil
             default: return null;
         }
 
-        if (split != null)
+        if (split is not null)
             sav.Metadata.SetExtraInfo(split.Header, split.Footer, split.Handler);
         return sav;
     }
@@ -976,5 +922,17 @@ public static class SaveUtil
     /// Determines whether the save data size is valid for automatically detecting saves.
     /// </summary>
     /// <remarks>Does not check the <see cref="Handlers"/> list.</remarks>
-    public static bool IsSizeValidNoHandler(long size) => Sizes.Contains(size);
+    public static bool IsSizeValidNoHandler(long size)
+    {
+        if ((uint)size > int.MaxValue)
+            return false;
+        int length = (int)size;
+        if (IsSizeGen9SV(length))
+            return true;
+        if (IsSizeGen8SWSH(length))
+            return true;
+        if (IsSizeCommonFixed(length))
+            return true;
+        return false;
+    }
 }

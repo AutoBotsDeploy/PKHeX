@@ -10,7 +10,7 @@ namespace PKHeX.Core;
 /// Generation 3 <see cref="EncounterGift3"/> Gifts
 /// </summary>
 /// <remarks>
-/// Generation 3 has a wide range of PIDIV types and other restrictions, and was never consistently stored in raw bytes.
+/// Generation 3 has a wide range of PID/IV types and other restrictions, and was never consistently stored in raw bytes.
 /// Normally we'd just load the data from a binary, but without raw data... hard-code everything by hand.
 /// </remarks>
 internal static class EncountersWC3
@@ -28,16 +28,16 @@ internal static class EncountersWC3
         new(263, 05, S) { Moves = new(033,045,039,000), Language = (int)Japanese, Method = BACD_RBCD, ID32 = 21121, Shiny = Always, OriginalTrainerName = "ルビー",     OriginalTrainerGender = RandD3_1 }, // Berry Fix Ruby
         new(263, 05, S) { Moves = new(033,045,039,000), Language = (int)Japanese, Method = BACD_RBCD, ID32 = 21121, Shiny = Always, OriginalTrainerName = "サファイア", OriginalTrainerGender = RandD3_0 }, // Berry Fix Sapphire
 
-        new(385, 05, R) { Moves = new(001,144,000,000), Language = (int)Japanese, Method = BACD_T2,   ID32 = 30719, Shiny = Never, OriginalTrainerName = "ネガイボシ", OriginalTrainerGender = Only0 }, // Negai Boshi Jirachi
-        new(385, 05, RS){ Moves = new(001,144,000,000), Language = (int)Japanese, Method = BACD_U_AX, ID32 = 30719, Shiny = Never, OriginalTrainerName = "ネガイボシ", OriginalTrainerGender = Recipient }, // Negai Boshi Jirachi (Match Recipient)
-        new(385, 05, R) { Moves = new(001,144,000,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 40707, Shiny = Never, OriginalTrainerName = "タナバタ",   OriginalTrainerGender = Only1 }, // Tanabata Jirachi (2004)
+        new(385, 05, R) { Moves = new(273,093,156,000), Language = (int)Japanese, Method = BACD_T2,   ID32 = 30719, Shiny = Never, OriginalTrainerName = "ネガイボシ", OriginalTrainerGender = Only0 }, // Negai Boshi Jirachi
+        new(385, 05, RS){ Moves = new(273,093,156,000), Language = (int)Japanese, Method = BACD_U_AX, ID32 = 30719, Shiny = Never, OriginalTrainerName = "ネガイボシ", OriginalTrainerGender = Recipient }, // Negai Boshi Jirachi (Match Recipient)
+        new(385, 05, R) { Moves = new(273,093,156,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 40707, Shiny = Never, OriginalTrainerName = "タナバタ",   OriginalTrainerGender = Only1 }, // Tanabata Jirachi (2004)
         new(025, 10, R) { Moves = new(019,084,039,086), Language = (int)Japanese, Method = BACD_R_A, ID32 = 41205, Shiny = Never, OriginalTrainerName = "ＡＮＡ",     OriginalTrainerGender = Only0 }, // ANA Pikachu
         new(052, 05, R) { Moves = new(010,045,000,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50318, Shiny = Never, OriginalTrainerName = "ポケパーク", OriginalTrainerGender = Only0 }, // PokéPark Meowth
         new(025, 10, R) { Moves = new(084,045,086,057), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50319, Shiny = Never, OriginalTrainerName = "ヨコハマ",  OriginalTrainerGender = Only0 }, // Yokohama Pikachu
         new(151, 10, R) { Moves = new(001,144,000,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50716, Shiny = Never, OriginalTrainerName = "ハドウ",    OriginalTrainerGender = RandD3, FatefulEncounter = true }, // Hadou Mew
         new(025, 10, R) { Moves = new(045,039,086,019), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50425, Shiny = Never, OriginalTrainerName = "ＧＷ",      OriginalTrainerGender = RandS3 }, // GW Pikachu
         new(025, 10, R) { Moves = new(045,039,086,019), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50701, Shiny = Never, OriginalTrainerName = "サッポロ",  OriginalTrainerGender = Only0 }, // Sapporo Pikachu
-        new(385, 05, R) { Moves = new(001,144,000,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50707, Shiny = Never, OriginalTrainerName = "タナバタ",  OriginalTrainerGender = Only1 }, // Tanabata Jirachi (2005)
+        new(385, 05, R) { Moves = new(273,093,156,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50707, Shiny = Never, OriginalTrainerName = "タナバタ",  OriginalTrainerGender = Only1 }, // Tanabata Jirachi (2005)
         new(375, 30, R) { Moves = new(036,093,232,287), Language = (int)Japanese, Method = BACD_R_A, ID32 = 02005, Shiny = Never, OriginalTrainerName = "フェスタ",  OriginalTrainerGender = Only0, RibbonNational = true }, // Festa Metang
         new(202, 05, R) { Moves = new(068,243,219,194), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50701, Shiny = Never, OriginalTrainerName = "サンデー",  OriginalTrainerGender = RandS3 }, // Sunday Wobbuffet
         new(377, 40, R) { Moves = new(174,276,246,063), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50901, Shiny = Never, OriginalTrainerName = "ハドウ",    OriginalTrainerGender = RandSG15 }, // Regirock
@@ -45,7 +45,7 @@ internal static class EncountersWC3
         new(379, 40, R) { Moves = new(174,276,246,063), Language = (int)Japanese, Method = BACD_R_A, ID32 = 50901, Shiny = Never, OriginalTrainerName = "ハドウ",    OriginalTrainerGender = RandSG15 }, // Registeel
         new(151, 30, R) { Moves = new(001,144,005,118), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60510, Shiny = Never, OriginalTrainerName = "ポケパーク", OriginalTrainerGender = RandD3, FatefulEncounter = true }, // PokéPark Mew
         new(251, 30, R) { Moves = new(215,219,246,248), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60623, Shiny = Never, OriginalTrainerName = "ポケパーク", OriginalTrainerGender = RandS7 }, // PokéPark Celebi
-        new(385, 05, R) { Moves = new(001,144,000,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60707, Shiny = Never, OriginalTrainerName = "タナバタ",   OriginalTrainerGender = RandS7 }, // Tanabata Jirachi (2006)
+        new(385, 05, R) { Moves = new(273,093,156,000), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60707, Shiny = Never, OriginalTrainerName = "タナバタ",   OriginalTrainerGender = RandS7 }, // Tanabata Jirachi (2006)
         new(251, 10, R) { Moves = new(073,105,215,219), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60720, Shiny = Never, OriginalTrainerName = "ミツリン",   OriginalTrainerGender = RandS7 }, // Mitsurin Celebi (2006)
         new(385, 30, R) { Moves = new(273,094,270,156), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60731, Shiny = Never, OriginalTrainerName = "ポケパーク", OriginalTrainerGender = RandD3 }, // PokéPark Jirachi (2006)
         new(385, 30, R) { Moves = new(273,094,270,156), Language = (int)Japanese, Method = BACD_R_A, ID32 = 60830, Shiny = Never, OriginalTrainerName = "ポケパーク", OriginalTrainerGender = RandD3 }, // PokéPark Jirachi (2006)
@@ -194,8 +194,10 @@ internal static class EncountersWC3
         new(371, 5, R, true) { Moves = new(099,044,334,000), Method = BACD_T2, OriginalTrainerName = PCJPEggTrainerName, OriginalTrainerGender = Only0 }, // Bagon with Iron Defense
         new(371, 5, R, true) { Moves = new(099,044,273,000), Method = BACD_T2, OriginalTrainerName = PCJPEggTrainerName, OriginalTrainerGender = Only0 }, // Bagon with Wish
 
-        // Wondercard gifts call the same give egg script as the Hot Springs Wynaut, but the game has a vblank interrupt between PID and IVs (potentially because the script does not lock when starting).
-        // Removing the vblank interrupt via ROM patch results in the scripts yielding a Method 1 PID/IV, so hopefully it's consistent enough to assume all are just Method 2 and no splits.
+        // Distributed event gifts for receipt in the Pokémon Center 2F call the same give egg script as the Hot Springs Wynaut.
+        // Most often, the game has a VBlank interrupt between PID and IVs (potentially because the script does not lock when starting).
+        // Removing the VBlank interrupt via ROM patch results in the scripts yielding a Method 1 PID/IV.
+        // Specific setups & seeds can yield Method 1 or Method 4. Check method compatibility separately (based on resulting PID value and correlation type).
 
         // PCJP Egg Pokémon Present Eggs - Wondercard (March 21 to April 4, 2004)
         new(043, 5, FRLG, true) { Moves = new(071,073,000,000), Method = Method_2, FatefulEncounter = true, OriginalTrainerName = M2WishEggOT }, // Oddish with Leech Seed

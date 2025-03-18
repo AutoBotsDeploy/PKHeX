@@ -146,22 +146,17 @@ public class PIDIVTest
     public void PIDIVPokeSpotTest()
     {
         // XD PokeSpots: Check all 3 Encounter Slots (examples are one for each location).
-        var pkPS0 = new PK3 { PID = 0x7B2D9DA7 }; // Zubat (Cave)
-        MethodFinder.GetPokeSpotSeedFirst(pkPS0, 0).Type.Should().Be(PIDType.PokeSpot); // PokeSpot encounter info mismatch (Common)
-
-        var pkPS1 = new PK3 { PID = 0x3EE9AF66 }; // Gligar (Rock)
-        MethodFinder.GetPokeSpotSeedFirst(pkPS1, 1).Type.Should().Be(PIDType.PokeSpot); // PokeSpot encounter info mismatch (Uncommon)
-
-        var pkPS2 = new PK3 { PID = 0x9B667F3C }; // Surskit (Oasis)
-        MethodFinder.GetPokeSpotSeedFirst(pkPS2, 2).Type.Should().Be(PIDType.PokeSpot); // PokeSpot encounter info mismatch (Rare)
+        MethodPokeSpot.TryGetOriginSeedPID(0x7B2D9DA7, 0, out _).Should().BeTrue(); // Zubat (Cave) (Common)
+        MethodPokeSpot.TryGetOriginSeedPID(0x3EE9AF66, 1, out _).Should().BeTrue(); // Gligar (Rock) (Uncommon)
+        MethodPokeSpot.TryGetOriginSeedPID(0x9B667F3C, 2, out _).Should().BeTrue(); // Surskit (Oasis) (Rare)
     }
 
     [Theory]
-    [InlineData(30, 31, 31, 14, 31, 31, 0x28070031, 24, (int)Species.Pikachu, PokewalkerCourse4.YellowForest, PokewalkerSeedType.NoStroll)]
-    public void PokewalkerIVTest(uint hp, uint atk, uint def, uint spA, uint spD, uint spE, uint seed, ushort expect, ushort species, PokewalkerCourse4 course, PokewalkerSeedType type)
+    [InlineData(30, 31, 31, 14, 31, 31, 0x28070031, 024, PokewalkerSeedType.NoStroll)]
+    [InlineData(00, 00, 00, 05, 03, 09, 0x00011434, 539, PokewalkerSeedType.Stroll)]
+    public void PokewalkerIVTest(uint hp, uint atk, uint def, uint spA, uint spD, uint spE, uint seed, ushort expect, PokewalkerSeedType type)
     {
-        Span<uint> tmp = stackalloc uint[LCRNG.MaxCountSeedsIV];
-        var result = PokewalkerRNG.GetFirstSeed(species, course, tmp, hp, atk, def, spA, spD, spE);
+        var result = PokewalkerRNG.GetLeastEffortSeed(hp, atk, def, spA, spD, spE);
         result.Type.Should().Be(type);
         result.PriorPoke.Should().Be(expect);
         result.Seed.Should().Be(seed);

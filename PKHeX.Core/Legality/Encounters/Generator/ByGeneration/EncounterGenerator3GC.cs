@@ -31,9 +31,11 @@ public sealed class EncounterGenerator3GC : IEncounterGenerator
         {
             if (z is EncounterSlot3XD w)
             {
-                var pidiv = MethodFinder.GetPokeSpotSeedFirst(pk, w.SlotNumber);
-                if (pidiv.Type == PIDType.PokeSpot)
-                    info.PIDIV = pidiv;
+                if (MethodPokeSpot.TryGetOriginSeeds(pk, w, out var pid, out var ivs))
+                {
+                    const PIDType type = PIDType.PokeSpot;
+                    info.PIDIV = new PIDIV(type, pid).AsMutated(type, ivs);
+                }
             }
             else if (z is IShadow3 s)
             {
@@ -57,7 +59,7 @@ public sealed class EncounterGenerator3GC : IEncounterGenerator
                 partial ??= z;
         }
 
-        if (partial != null)
+        if (partial is not null)
         {
             info.ManualFlag = EncounterYieldFlag.InvalidPIDIV;
             yield return partial;

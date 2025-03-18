@@ -53,6 +53,14 @@ public sealed class SAV4HGSS : SAV4, IBoxDetailName, IBoxDetailWallpaper
         GetSAVOffsets();
     }
 
+    protected override byte[] GetFinalData()
+    {
+        // Make sure all boxes are copied when saved only once in-game.
+        // This results in the game "saving a lot of data", but ensures the boxdata struct does not corrupt in-game on single save.
+        FlagsBoxContentChanged = FlagsBoxContentChangedAll;
+        return base.GetFinalData();
+    }
+
     private const int OffsetMystery = 0x9D3C; // Flags and Gifts
     protected override int EventWork => 0xDE4;
     protected override int EventFlag => 0x10C4;
@@ -125,11 +133,16 @@ public sealed class SAV4HGSS : SAV4, IBoxDetailName, IBoxDetailWallpaper
         set => Storage[BOX_FLAGS] = value[0];
     }
 
-    public int Counter
+    /// <summary>
+    /// The box structure stores bitflags to indicate which boxes have changed; used when saving to skip unchanged boxes.
+    /// </summary>
+    public int FlagsBoxContentChanged
     {
         get => ReadInt32LittleEndian(Storage[(BOX_END + 4)..]);
         set => WriteInt32LittleEndian(Storage[(BOX_END + 4)..], value);
     }
+
+    private const int FlagsBoxContentChangedAll = 0x3_FFFF; // 18 boxes.
 
     private Span<byte> GetBoxNameSpan(int box) => Storage.Slice(GetBoxNameOffset(box), BOX_NAME_LEN);
     public string GetBoxName(int box) => GetString(GetBoxNameSpan(box));
@@ -288,7 +301,26 @@ public sealed class SAV4HGSS : SAV4, IBoxDetailName, IBoxDetailWallpaper
         FlagUtil.SetBitFlagArray(General[(OFS_WALKER + 0x8)..], value);
     }
 
-    public void PokewalkerCoursesUnlockAll() => PokewalkerCoursesSetAll(0x07FF_FFFFu); // 31 used
+    private const uint PokewalkerAllJPN = 0x07FF_FFFF; // 27 used
+    private const uint PokewalkerAllKOR = 0x037F_FFFF; // No Rally (23) or Amity Meadow (26)
+    private const uint PokewalkerAllINT = 0x027F_FFFF; // no Sightseeing (24)
+
+    /// <summary>
+    /// Unlocks all Pokéwalker courses -- be nice and unlock all even if not available for the save file's language.
+    /// </summary>
+    /// <remarks>The Pokéwalker can send captures to other languages, so the end results aren't really language locked.</remarks>
+    public void PokewalkerCoursesUnlockAll() => PokewalkerCoursesSetAll(PokewalkerAllJPN);
+
+    /// <summary>
+    /// Gets all valid Pokéwalker courses that can be unlocked for the given language.
+    /// </summary>
+    public static uint GetPossiblePokewalkerCourseUnlock(int language) => language switch
+    {
+        (int)LanguageID.Japanese => PokewalkerAllJPN,
+        (int)LanguageID.Korean => PokewalkerAllKOR,
+        _ => PokewalkerAllINT,
+    };
+
     public void PokewalkerCoursesUnlockNone() => PokewalkerCoursesSetAll(0);
     public void PokewalkerCoursesSetAll(uint bitFlags) => WriteUInt32LittleEndian(General[(OFS_WALKER + 0x8)..], bitFlags);
 

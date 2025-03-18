@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using static PKHeX.Core.MethodHCondition;
 using static PKHeX.Core.LeadRequired;
 using static PKHeX.Core.SlotType3;
+using System;
 
 namespace PKHeX.Core;
 
@@ -18,7 +19,7 @@ public static class MethodH
     /// <param name="evo">Level range constraints for the capture, if known.</param>
     /// <param name="emerald">Version encountered in (either Emerald or not)</param>
     /// <param name="gender">Gender encountered as</param>
-    /// <param name="format">Current format (different from 3)</param>
+    /// <param name="format">Current format (different from 3 will use level range instead of exact)</param>
     public static LeadSeed GetSeed<TEnc, TEvo>(TEnc enc, uint seed, TEvo evo, bool emerald, byte gender, byte format)
         where TEnc : IEncounterSlot3
         where TEvo : ILevelRange
@@ -32,9 +33,18 @@ public static class MethodH
         return GetOriginSeed(info, enc, seed, nature, evo.LevelMin, evo.LevelMax, format);
     }
 
-    /// <inheritdoc cref="GetSeed{TEnc,TEvo}"/>
-    public static LeadSeed GetSeed<TEnc>(TEnc enc, uint seed, bool emerald, byte gender, byte format)
-        where TEnc : IEncounterSlot3 => GetSeed(enc, seed, enc, emerald, gender, format);
+    /// <remarks>Used when generating or ignoring level ranges.</remarks>
+    /// <inheritdoc cref="GetSeed{TEnc,TEvo}(TEnc, uint, TEvo, bool, byte, byte)"/>
+    public static LeadSeed GetSeed<TEnc>(TEnc enc, uint seed, bool emerald, byte gender)
+        where TEnc : IEncounterSlot3
+        => GetSeed(enc, seed, enc, emerald, gender, 0);
+
+    /// <remarks>Used when generating with specific level ranges.</remarks>
+    /// <inheritdoc cref="GetSeed{TEnc,TEvo}(TEnc, uint, TEvo, bool, byte, byte)"/>
+    public static LeadSeed GetSeed<TEnc, TEvo>(TEnc enc, uint seed, bool emerald, byte gender, TEvo evo)
+        where TEnc : IEncounterSlot3
+        where TEvo : ILevelRange
+        => GetSeed(enc, seed, evo, emerald, gender, Format);
 
     // Summary of Random Determinations:
     // Nature:                       rand() % 25 == nature
@@ -203,6 +213,18 @@ public static class MethodH
 
     public static bool IsEncounterCheckApplicable(SlotType3 type) => type is Rock_Smash; // Fishing can use Sticky/Suction along with Friendship boost.
 
+    /// <inheritdoc cref="MethodK.SkipToLevelRand{T}"/>
+    public static uint SkipToLevelRand<T>(T enc, uint seed)
+        where T : IEncounterSlot3
+    {
+        if (enc.Type is Rock_Smash)
+            return LCRNG.Next3(seed); // Proc, ESV, level.
+        if (enc.Type.IsFishingRodType())
+            return LCRNG.Next2(seed); // ESV, level.
+        // Can sweet scent trigger.
+        return LCRNG.Next2(seed); // ESV, level.
+    }
+
     public static bool CheckEncounterActivation<T>(T enc, ref LeadSeed result)
         where T : IEncounterSlot3
     {
@@ -337,9 +359,9 @@ public static class MethodH
         if (syncProc)
         {
             var ctx = new FrameCheckDetails<T>(enc, seed, levelMin, levelMax, format);
-            if (IsSlotValidRegular(ctx, out seed))
+            if (IsSlotValidRegular(ctx, out var regular))
             {
-                result = new(seed, Synchronize);
+                result = new(regular, Synchronize);
                 return true;
             }
         }
@@ -362,7 +384,7 @@ public static class MethodH
         // -1 CC Proc (Random() % 3 != 0)
         //  0 Nature
         if (IsCuteCharmFail(ctx.Prev1))
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -376,7 +398,7 @@ public static class MethodH
         // -1 CC Proc (Random() % 3 == 0)
         //  0 Nature
         if (IsCuteCharmPass(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -390,7 +412,7 @@ public static class MethodH
         // -1 Sync Proc (Random() % 2) FAIL
         //  0 Nature
         if (IsSyncPass(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -405,7 +427,7 @@ public static class MethodH
         //  0 Nature
         // Note: if this check fails, the encounter generation routine is aborted.
         if (IsIntimidateKeenEyePass(ctx.Prev1)) // encounter routine aborted
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -419,9 +441,11 @@ public static class MethodH
         // -1 LevelMax proc (Random() & 1) FAIL
         //  0 Nature
         if (IsHustleVitalPass(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
-        return IsSlotValidFrom1Skip(ctx, out result);
+        // When it fails, level range is reduced by 1 so that it is not the maximum level, if possible.
+
+        return IsSlotValidFrom1SkipMinus1(ctx, out result);
     }
 
     private static bool TryGetMatchNoSync<T>(in FrameCheckDetails<T> ctx, out LeadSeed result)
@@ -464,7 +488,22 @@ public static class MethodH
             if (IsSlotValid(ctx.Encounter, ctx.Prev3))
             { result = ctx.Seed4; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
+    }
+
+    private static bool IsSlotValidFrom1SkipMinus1<T>(FrameCheckDetails<T> ctx, out uint result)
+        where T : IEncounterSlot3
+    {
+        // -3 ESV
+        // -2 Level (range biased down by 1)
+        // -1 (Proc Already Checked)
+        //  0 Nature
+        if (IsLevelValidMinus1(ctx.Encounter, ctx.LevelMin, ctx.LevelMax, ctx.Format, ctx.Prev2))
+        {
+            if (IsSlotValid(ctx.Encounter, ctx.Prev3))
+            { result = ctx.Seed4; return true; }
+        }
+        result = 0; return false;
     }
 
     private static bool IsSlotValidRegular<T>(in FrameCheckDetails<T> ctx, out uint result)
@@ -478,7 +517,7 @@ public static class MethodH
             if (IsSlotValid(ctx.Encounter, ctx.Prev2))
             { result = ctx.Seed3; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidHustleVital<T>(in FrameCheckDetails<T> ctx, out uint result)
@@ -490,11 +529,11 @@ public static class MethodH
         // -1 LevelMax proc (Random() & 1)
         //  0 Nature
         if (IsHustleVitalFail(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         var expectLevel = ctx.Encounter.PressureLevel;
         if (!IsOriginalLevelValid(ctx.LevelMin, ctx.LevelMax, ctx.Format, expectLevel))
-        { result = default; return false; }
+        { result = 0; return false; }
 
         // Level is always rand(), but...
         {
@@ -502,7 +541,7 @@ public static class MethodH
             if (IsSlotValid(ctx.Encounter, ctx.Prev3))
             { result = ctx.Seed4; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidStaticMagnet<T>(in FrameCheckDetails<T> ctx, out uint result, out LeadRequired lead)
@@ -515,14 +554,14 @@ public static class MethodH
         //  0 Nature
         lead = None;
         if (IsStaticMagnetFail(ctx.Prev3)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         if (IsLevelValid(ctx.Encounter, ctx.LevelMin, ctx.LevelMax, ctx.Format, ctx.Prev1))
         {
             if (ctx.Encounter.IsSlotValidStaticMagnet(ctx.Prev2, out lead))
             { result = ctx.Seed4; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidStaticMagnetFail<T>(in FrameCheckDetails<T> ctx, out uint result)
@@ -534,14 +573,14 @@ public static class MethodH
         // -1 Level
         //  0 Nature
         if (IsStaticMagnetPass(ctx.Prev3)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         if (IsLevelValid(ctx.Encounter, ctx.LevelMin, ctx.LevelMax, ctx.Format, ctx.Prev1))
         {
             if (IsSlotValid(ctx.Encounter, ctx.Prev2))
             { result = ctx.Seed4; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValid<T>(T enc, uint u16SlotRand)
@@ -553,7 +592,13 @@ public static class MethodH
 
     private static bool IsLevelValid<T>(T enc, byte min, byte max, byte format, uint u16LevelRand) where T : ILevelRange
     {
-        var level = GetExpectedLevel(enc, u16LevelRand);
+        var level = GetRandomLevel(enc, u16LevelRand);
+        return IsOriginalLevelValid(min, max, format, level);
+    }
+
+    private static bool IsLevelValidMinus1<T>(T enc, byte min, byte max, byte format, uint u16LevelRand) where T : ILevelRange
+    {
+        var level = GetRandomLevelMinus1(enc, u16LevelRand);
         return IsOriginalLevelValid(min, max, format, level);
     }
 
@@ -564,11 +609,28 @@ public static class MethodH
         return LevelRangeExtensions.IsLevelWithinRange((int)level, min, max);
     }
 
-    private static uint GetExpectedLevel<T>(T enc, uint u16LevelRand) where T : ILevelRange
+    public static uint GetRandomLevel<T>(T enc, uint u16LevelRand, LeadRequired lead) where T : ILevelRange => lead switch
+    {
+        PressureHustleSpiritFail => GetRandomLevelMinus1(enc, u16LevelRand),
+        PressureHustleSpirit => enc.LevelMax,
+        _ => GetRandomLevel(enc, u16LevelRand),
+    };
+
+    private static uint GetRandomLevel<T>(T enc, uint u16LevelRand) where T : ILevelRange
     {
         var min = enc.LevelMin;
         uint mod = 1u + enc.LevelMax - min;
         return (u16LevelRand % mod) + min;
+    }
+
+    private static uint GetRandomLevelMinus1<T>(T enc, uint u16LevelRand) where T : ILevelRange
+    {
+        var min = enc.LevelMin;
+        uint mod = 1u + enc.LevelMax - min;
+        var bias = (u16LevelRand % mod);
+        if (bias != 0)
+            bias--;
+        return min + bias;
     }
 
     private static bool IsRockSmashPossible(byte areaRate, ref uint seed)
@@ -614,4 +676,40 @@ public static class MethodH
         or Good_Rod
         or Super_Rod
         or SwarmFish50;
+
+    /// <summary>
+    /// Get the first possible starting seed that generates the given trainer ID and secret ID.
+    /// </summary>
+    /// <param name="tid">Generation 3 Trainer ID</param>
+    /// <param name="sid">Generation 3 Secret ID</param>
+    /// <param name="seed">Possible starting seed</param>
+    /// <returns>True if a seed was found, false if no seed was found</returns>
+    public static bool TryGetSeedTrainerID(ushort tid, ushort sid, out uint seed)
+    {
+        Span<uint> seeds = stackalloc uint[LCRNG.MaxCountSeedsPID];
+        var count = LCRNGReversal.GetSeeds(seeds, (uint)sid << 16, (uint)tid << 16);
+
+        if (count == 0)
+        {
+            seed = 0;
+            return false;
+        }
+        seed = seeds[0];
+        return true;
+    }
+
+    public static bool TryGetShinySID(ushort tid, out ushort sid, uint xor, uint bits = 0)
+    {
+        for (int i = 0; i < 8; i++, bits++)
+        {
+            var newSID = (ushort)(xor ^ (bits & 7));
+            if (!TryGetSeedTrainerID(tid, newSID, out _))
+                continue;
+            sid = newSID;
+            return true;
+        }
+        sid = 0;
+        return false;
+    }
+
 }

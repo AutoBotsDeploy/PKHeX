@@ -231,10 +231,14 @@ public sealed record EncounterSlot8GO(int StartDate, int EndDate, ushort Species
             return EncounterMatchRating.PartialMatch;
         if (Species is (int)Farfetchd && IsReallySirfetchd(pk))
             return EncounterMatchRating.DeferredErrors;
+        if (pk is ITeraType ro && IsTeraTypeMismatch(ro.TeraTypeOriginal, PersonalTable.SV[Species, Form]))
+            return EncounterMatchRating.DeferredErrors;
         if (!this.GetIVsValid(pk))
             return EncounterMatchRating.Deferred;
         return EncounterMatchRating.Match;
     }
+
+    private static bool IsTeraTypeMismatch(MoveType original, PersonalInfo9SV pi) => original != TeraTypeUtil.GetTeraTypeImport(pi.Type1, pi.Type2);
 
     /// <summary>
     /// Checks if a Farfetch'd was originally a Sirfetch'd.
@@ -250,8 +254,8 @@ public sealed record EncounterSlot8GO(int StartDate, int EndDate, ushort Species
             return false; // can't tell if it was originally Farfetch'd
 
         Span<char> name = stackalloc char[pk.TrashCharCountNickname];
-        pk.LoadString(pk.NicknameTrash, name);
-        return name is "Sirfetch'd"; // only way to get the bad apostrophe is to originate in HOME with it.
+        int length = pk.LoadString(pk.NicknameTrash, name);
+        return name[..length] is "Sirfetch'd"; // only way to get the bad apostrophe is to originate in HOME with it.
     }
 
     public byte OriginalTrainerFriendship => Species switch
@@ -296,7 +300,7 @@ public sealed record EncounterSlot8GO(int StartDate, int EndDate, ushort Species
         return this.IsWithinStartEnd(stamp);
     }
 
-    private bool IsFormArgIncorrect(ISpeciesForm pk) => Species switch
+    private bool IsFormArgIncorrect<T>(T pk) where T : ISpeciesForm => Species switch
     {
         // Evolved without Form Argument changing from default
         (int)Yamask     when pk.Species != Species && Form == 1 => pk is IFormArgument { FormArgument: 0 },

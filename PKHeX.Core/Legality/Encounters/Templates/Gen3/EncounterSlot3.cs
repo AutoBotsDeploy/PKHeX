@@ -39,7 +39,17 @@ public record EncounterSlot3(EncounterArea3 Parent, ushort Species, byte Form, b
     public PK3 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
     {
         int lang = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language);
-        var version = Version != GameVersion.RSE ? Version : GameVersion.RSE.Contains(tr.Version) ? tr.Version : GameVersion.E;
+        var version = Version switch
+        {
+            GameVersion.RSE => tr.Version switch
+            {
+                GameVersion.R => GameVersion.R,
+                GameVersion.S => GameVersion.S,
+                GameVersion.RS => GameVersion.R,
+                _ => GameVersion.E,
+            },
+            _ => Version
+        };
         var pi = PersonalTable.E[Species];
         var pk = new PK3
         {
@@ -70,13 +80,13 @@ public record EncounterSlot3(EncounterArea3 Parent, ushort Species, byte Form, b
     {
         if (Species != (int)Core.Species.Unown)
         {
-            if (criteria.IsSpecifiedIVs() && this.SetFromIVs(pk, criteria))
+            if (criteria.IsSpecifiedIVsAll() && this.SetFromIVs(pk, pi, criteria, pk.E))
                 return;
             this.SetRandom(pk, pi, criteria, Util.Rand32());
         }
         else
         {
-            if (criteria.IsSpecifiedIVs() && this.SetFromIVsUnown(pk, criteria))
+            if (criteria.IsSpecifiedIVsAll() && this.SetFromIVsUnown(pk, criteria))
                 return;
             this.SetRandomUnown(pk, criteria);
         }

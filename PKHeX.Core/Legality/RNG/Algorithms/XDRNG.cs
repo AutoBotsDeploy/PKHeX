@@ -106,6 +106,17 @@ public static class XDRNG
     }
 
     /// <summary>
+    /// Gets the upper 5 bits of the next RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to advance one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Next5(ref uint seed)
+    {
+        seed = Next(seed);
+        return seed >> 27;
+    }
+
+    /// <summary>
     /// Gets the upper 0x7FFF bits of the next RNG seed.
     /// </summary>
     /// <param name="seed">Seed to advance one step.</param>
@@ -125,6 +136,17 @@ public static class XDRNG
     {
         seed = Prev(seed);
         return seed >> 16;
+    }
+
+    /// <summary>
+    /// Gets the upper 16 bits of the previous RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to reverse one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Prev15(ref uint seed)
+    {
+        seed = Prev(seed);
+        return (seed >> 16) & 0x7FFF;
     }
 
     /// <summary>
@@ -159,51 +181,15 @@ public static class XDRNG
     /// Generates an IV for each RNG call using the top 5 bits of frame seeds.
     /// </summary>
     /// <param name="seed">RNG seed</param>
-    /// <param name="IVs">Expected IVs</param>
     /// <returns>True if all match.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool GetSequentialIVsUInt32(uint seed, ReadOnlySpan<uint> IVs)
+    public static uint GetSequentialIV32(uint seed)
     {
-        foreach (var iv in IVs)
-        {
-            seed = Next(seed);
-            var expect = seed >> 27;
-            if (iv != expect)
-                return false;
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// Generates an IV for each RNG call using the top 5 bits of frame seeds.
-    /// </summary>
-    /// <param name="seed">RNG seed</param>
-    /// <param name="ivs">Buffer to store generated values</param>
-    /// <returns>Array of 6 IVs as <see cref="int"/>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void GetSequentialIVsInt32(uint seed, Span<int> ivs)
-    {
-        for (int i = 0; i < ivs.Length; i++)
-        {
-            seed = Next(seed);
-            ivs[i] = (int)(seed >> 27);
-        }
-    }
-
-    /// <summary>
-    /// Generates an IV for each RNG call using the top 5 bits of frame seeds.
-    /// </summary>
-    /// <param name="seed">RNG seed</param>
-    /// <returns>Combined IVs as <see cref="uint"/>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static uint GetSequentialIVsInt32(uint seed)
-    {
-        var result = 0u;
+        uint result = 0;
         for (int i = 0; i < 6; i++)
         {
-            seed = Next(seed);
-            var shift = 27 - (i * 5);
-            result |= (seed >> shift);
+            var value = Next5(ref seed); // extract top 5 bits
+            result |= value << (i * 5);
         }
         return result;
     }
@@ -214,6 +200,7 @@ public static class XDRNG
     // Instead of using yield and iterators, we calculate all results in a tight loop and return the count found.
     public const int MaxCountSeedsPID = 2;
     public const int MaxCountSeedsIV = 6;
+    public const int MaxCountSeedsChannel = 12;
 
     // Euclidean division constants
     private const uint Sub = Add - 0xFFFF;
@@ -293,6 +280,67 @@ public static class XDRNG
                 result[ctr++] = s ^ 0x8000_0000; // top bit flip
             }
         }
+        return ctr;
+    }
+
+    public static int GetSeedsChannel(Span<uint> result, uint hp, uint atk, uint def, uint spa, uint spd, uint spe)
+    {
+        // Recovers seeds from 6 successive calls to rand() that returns the top 5 bits of each.
+        // Mult(j) = Mult^j
+        // Add(j) = Add * (Mult^0 + Mult^1 + ... + Mult^(j-1))
+        // Using j = 3 and XDRNG gives Mult = 0x45c82be5 and Add = 0xd2f65b55
+        const uint mult = Mult3; // Modified mult (3 advances)
+        const uint sub = 0xcaf65b56; // Modified add - 0x7ffffff
+        const ulong b = 0x22e415e_ea37d41a; // (Modified mult + 1) * 0x7ffffff
+
+        const ulong prime = 3;
+        const ulong add = 0x3_0000_0000; // prime * 0x1_0000_0000
+        const uint rmax = 0x__1800_0000; // prime * 0x__0800_0000
+        const ulong skip = 0x661D29; // prime * 2^32 % mult
+
+        uint first = hp << 27;
+        uint t = (((spe << 27) - mult * first) - sub);
+        uint kmax = (uint)((b - t) >> 32);
+        ulong x = (t * prime) % mult;
+
+        int ctr = 0;
+        for (ulong k = 0; k <= kmax;)
+        {
+            var r = (x + skip * k) % mult;
+            var m = r % prime;
+            if (m != 0)
+            {
+                m = m == 1 ? 2u : 1u;
+                r += m * skip;
+                k += (byte)m;
+            }
+
+            var tmp = k << 32 | t;
+            while (r < rmax && k <= kmax)
+            {
+                uint seed = first | (uint)(tmp / mult); // hp
+                if (Next5(ref seed) == atk)
+                {
+                    if (Next5(ref seed) == def)
+                    {
+                        _ = Next5(ref seed); // spe
+                        if (Next5(ref seed) == spa)
+                        {
+                            if (Next5(ref seed) == spd)
+                                result[ctr++] = Prev12(seed); // unroll to origin
+                        }
+                    }
+                }
+
+                r += prime * skip;
+                k += prime;
+                tmp += add;
+            }
+
+            // Rounding up without using floats
+            k += ((mult - r) + skip - 1) / skip;
+        }
+
         return ctr;
     }
 
