@@ -24,7 +24,7 @@ public partial class SettingsEditor : Form
         {
             static bool IsInvalidSaveFileVersion(GameVersion value) => value is 0 or GameVersion.GO;
             CB_Blank.InitializeBinding();
-            CB_Blank.DataSource = GameInfo.VersionDataSource.Where(z => !IsInvalidSaveFileVersion((GameVersion)z.Value)).ToList();
+            CB_Blank.DataSource = GameInfo.Sources.VersionDataSource.Where(z => !IsInvalidSaveFileVersion((GameVersion)z.Value)).ToList();
             CB_Blank.SelectedValue = (int)s.Startup.DefaultSaveVersion;
             CB_Blank.SelectedValueChanged += (_, _) =>
             {
@@ -64,6 +64,7 @@ public partial class SettingsEditor : Form
             var tab = new TabPage(p) { Name = $"Tab_{p}" };
             var pg = new PropertyGrid { SelectedObject = state, Dock = DockStyle.Fill };
             tab.Controls.Add(pg);
+            pg.ExpandAllGridItems();
             tabControl1.TabPages.Add(tab);
         }
     }
@@ -81,7 +82,7 @@ public partial class SettingsEditor : Form
             var dr = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Resetting settings requires the program to exit.", MessageStrings.MsgContinue);
             if (dr != DialogResult.Yes)
                 return;
-            var path = Main.ConfigPath;
+            var path = Program.PathConfig;
             if (File.Exists(path))
                 File.Delete(path);
             System.Diagnostics.Process.Start(Application.ExecutablePath);

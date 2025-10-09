@@ -383,9 +383,9 @@ public static class MethodFinder
         // generation 5 shiny PIDs
         if (low <= 0xFF)
         {
-            var av = (pid >> 16) & 1;
-            var genPID = PIDGenerator.GetMG5ShinyPID(low, av, pk.TID16, pk.SID16);
-            if (genPID == pid)
+            var abilBit = (pid >> 16) & 1;
+            var expect = MonochromeRNG.GetShinyPID(low, abilBit, pk.TID16, pk.SID16);
+            if (pid == expect)
             {
                 pidiv = PIDIV.G5MGShiny;
                 return true;
@@ -472,7 +472,7 @@ public static class MethodFinder
             if (expectPID != actualPID)
             {
                 // Check for the alternate event types that force shiny state.
-                bool isShiny = ShinyUtil.GetIsShiny(idXor, actualPID, 8);
+                bool isShiny = ShinyUtil.GetIsShiny3(idXor, actualPID);
                 if (!isShiny) // most likely, branch prediction!
                 {
                     if (CommonEvent3.IsRegularAntishiny(actualPID, expectPID))
@@ -564,7 +564,7 @@ public static class MethodFinder
         if (!starter)
             return GetNonMatch(out pidiv);
 
-        if (!MethodCXD.TryGetOriginSeedStarterColo(iv1, iv2, pk.EncryptionConstant, pk.TID16, pk.SID16, species, out var result))
+        if (!MethodCXD.TryGetSeedStarterColo(iv1, iv2, pk.EncryptionConstant, pk.TID16, pk.SID16, species, out var result))
             return GetNonMatch(out pidiv);
 
         pidiv = new PIDIV(CXD_ColoStarter, result);

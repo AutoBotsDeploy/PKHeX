@@ -1,5 +1,6 @@
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace PKHeX.Core;
@@ -47,6 +48,8 @@ public static class MessageStrings
 
     #region Main Window
 
+    public static string MsgConfirmQuitProgram { get; set; } = "Quit PKHeX?";
+
     public static string MsgFileLoad { get; set; } = "File Loaded:";
     public static string MsgFileLoadAllZero { get; set; } = "File is uninitialized (all zero). Please ensure it was properly saved.";
     public static string MsgFileLoadAllFFFF { get; set; } = "File is uninitialized (all 0xFF). Please ensure it was properly saved.";
@@ -65,6 +68,11 @@ public static class MessageStrings
     public static string MsgFileLoadSaveSelectVersion { get; set; } = "Select the version.";
     public static string MsgFileLoadSaveSelectGame { get; set; } = "Select a game to edit.";
     public static string MsgFileLoadSaveMultiple { get; set; } = "Multiple games detected";
+
+    public static string MsgFileLoadSelectFileSave { get; set; } = "Select a save file...";
+    public static string MsgFileLoadSelectFileBlock { get; set; } = "Select a save block file...";
+    public static string MsgFileLoadSelectFileSecretBase { get; set; } = "Select a Secret Base file...";
+
     public static string MsgFileGameCubeBad { get; set; } = "Invalid or corrupted GC Memory Card. Aborting.";
     public static string MsgFileGameCubeDuplicate { get; set; } = "GC Memory Card with duplicated game save files. Aborting.";
     public static string MsgFileGameCubeNoGames { get; set; } = "GC Memory Card without any Pokémon save file. Aborting.";
@@ -94,6 +102,9 @@ public static class MessageStrings
     public static string MsgClipboardLegalityExport { get; set; } = "Copy report to Clipboard?";
     public static string MsgClipboardFailRead { get; set; } = "Clipboard does not contain text.";
     public static string MsgClipboardFailWrite { get; set; } = "Unable to set text to Clipboard.";
+
+    public static string MsgLegalityHoverValid { get; set; } = "Valid";
+    public static string MsgLegalityHoverInvalid { get; set; } = "Invalid: Click for more info.";
 
     public static string MsgSimulatorFailClipboard { get; set; } = "Set data not found in clipboard.";
     public static string MsgSimulatorLoad { get; set; } = "Import this set?";
@@ -216,6 +227,7 @@ public static class MessageStrings
     public static string MsgGeonetPointYellow { get; set; } = "Yellow";
     public static string MsgGeonetPointRed { get; set; } = "Red";
 
+    public static string MsgGearAllCharacterStyles { get; set; } = "All";
     #endregion
 
     #region QR Codes

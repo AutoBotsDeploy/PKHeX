@@ -1,8 +1,6 @@
-using Microsoft.VisualBasic.FileIO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 
 namespace PKHeX.Core;
@@ -10,17 +8,17 @@ namespace PKHeX.Core;
 /// <summary>
 /// Base Class for Save Files
 /// </summary>
-public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IGeneration, IVersion, IStringConverter
+public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IStringConverter, ITrainerID32
 {
-    // General Object Properties
-    public byte[] Data;
+    public readonly Memory<byte> Buffer;
+    public Span<byte> Data => Buffer.Span;
 
     public SaveFileState State { get; }
     public SaveFileMetadata Metadata { get; private set; }
 
-    protected SaveFile(byte[] data, bool exportable = true)
+    protected SaveFile(Memory<byte> data, bool exportable = true)
     {
-        Data = data;
+        Buffer = data;
         State = new SaveFileState(exportable);
         Metadata = new SaveFileMetadata(this);
     }
@@ -44,16 +42,16 @@ public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IGeneration, IVe
     public virtual IReadOnlyList<string> PKMExtensions => EntityFileExtension.GetExtensionsAtOrBelow(Generation);
 
     // General SAV Properties
-    public byte[] Write(BinaryExportSetting setting = BinaryExportSetting.None)
+    public Memory<byte> Write(BinaryExportSetting setting = BinaryExportSetting.None)
     {
-        byte[] data = GetFinalData();
+        var data = GetFinalData();
         return Metadata.Finalize(data, setting);
     }
 
-    protected virtual byte[] GetFinalData()
+    protected virtual Memory<byte> GetFinalData()
     {
         SetChecksums();
-        return Data;
+        return Data.ToArray();
     }
 
     #region Metadata & Limits
@@ -67,7 +65,7 @@ public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IGeneration, IVe
     #endregion
 
     #region Savedata Container Handling
-    public void SetData(ReadOnlySpan<byte> input, int offset) => SetData(Data.AsSpan(offset), input);
+    public void SetData(ReadOnlySpan<byte> input, int offset) => SetData(Data[offset..], input);
 
     public void SetData(Span<byte> dest, ReadOnlySpan<byte> input)
     {
@@ -411,7 +409,7 @@ public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IGeneration, IVe
     public decimal PercentCaught => (decimal)CaughtCount / MaxSpeciesID;
     #endregion
 
-    public bool HasBox => Box > -1;
+    public virtual bool HasBox => Box > -1;
     public virtual int BoxSlotCount => 30;
     public virtual int BoxesUnlocked { get => -1; set { } }
     public virtual byte[] BoxFlags { get => []; set { } }
@@ -426,7 +424,7 @@ public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IGeneration, IVe
         {
             PKM[] data = new PKM[BoxCount * BoxSlotCount];
             for (int box = 0; box < BoxCount; box++)
-                AddBoxData(data, box, box * BoxSlotCount);
+                GetBoxData(data, box, box * BoxSlotCount);
             return data;
         }
         set
@@ -456,11 +454,17 @@ public abstract class SaveFile : ITrainerInfo, IGameValueLimit, IGeneration, IVe
     public PKM[] GetBoxData(int box)
     {
         var data = new PKM[BoxSlotCount];
-        AddBoxData(data, box, 0);
+        GetBoxData(data, box, 0);
         return data;
     }
 
-    public void AddBoxData(IList<PKM> data, int box, int index)
+    /// <summary>
+    /// Populates the specified list with data from a specific box starting at the given index.
+    /// </summary>
+    /// <param name="data">The list to populate with box data. The list must have sufficient capacity to hold the data.</param>
+    /// <param name="box">The zero-based index of the box to retrieve data from.</param>
+    /// <param name="index">The starting index in the <paramref name="data"/> list where the box data will be placed.</param>
+    public void GetBoxData(IList<PKM> data, int box, int index)
     {
         for (int slot = 0; slot < BoxSlotCount; slot++)
         {

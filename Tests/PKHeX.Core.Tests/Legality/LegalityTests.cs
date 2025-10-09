@@ -1,8 +1,8 @@
 using System;
-using System.Collections.Generic;
 using FluentAssertions;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Xunit;
 
 namespace PKHeX.Core.Tests.Legality;
@@ -134,8 +134,6 @@ public class LegalityTest
             ParseSettings.Settings.Tradeback.AllowGen1Tradeback = dn.Contains("1 Tradeback");
             var pk = EntityFormat.GetFromBytes(data, prefer);
             pk.Should().NotBeNull($"the PKM '{new FileInfo(file).Name}' should have been loaded");
-            if (pk is null)
-                continue;
             var legality = new LegalityAnalysis(pk);
             if (legality.Valid == isValid)
             {
@@ -146,7 +144,7 @@ public class LegalityTest
             var fn = Path.Combine(dn, fi.Name);
             if (isValid)
             {
-                legality.Valid.Should().BeTrue($"because the file '{fn}' should be Valid, but found:{Environment.NewLine}{string.Join(Environment.NewLine, GetIllegalLines(legality))}");
+                legality.Valid.Should().BeTrue($"because the file '{fn}' should be Valid, but found:{Environment.NewLine}{GetIllegalLines(legality)}");
             }
             else
             {
@@ -156,15 +154,25 @@ public class LegalityTest
         ctr.Should().BeGreaterThan(0, "any amount of files should have been processed from a folder that exists.");
     }
 
-    private static IEnumerable<string> GetIllegalLines(LegalityAnalysis legality)
+    // Simple info-dump for illegal lines in a LegalityAnalysis.
+    private static string GetIllegalLines(LegalityAnalysis legality)
     {
+        var localizer = new LegalityLocalizationContext
+        {
+            Analysis = legality,
+            Settings = LegalityLocalizationSet.GetLocalization(GameLanguage.DefaultLanguage),
+        };
+
+        StringBuilder result = new();
         foreach (var l in legality.Results.Where(z => !z.Valid))
-            yield return l.Comment;
+            result.AppendLine(localizer.Humanize(l));
 
         var info = legality.Info;
         foreach (var m in info.Moves.Where(z => !z.Valid))
-            yield return m.Summary(info.Entity, info.EvoChainsAllGens);
+            result.AppendLine(m.Summary(localizer));
         foreach (var r in info.Relearn.Where(z => !z.Valid))
-            yield return r.Summary(info.Entity, info.EvoChainsAllGens);
+            result.AppendLine(r.Summary(localizer));
+
+        return result.ToString();
     }
 }

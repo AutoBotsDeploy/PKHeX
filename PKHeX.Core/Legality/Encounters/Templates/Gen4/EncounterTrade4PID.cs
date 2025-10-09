@@ -58,9 +58,9 @@ public sealed record EncounterTrade4PID : IEncounterable, IEncounterMatch, IEnco
     public byte ContestTough => Contest;
     public byte ContestSheen => 0;
 
-    public EncounterTrade4PID(ReadOnlySpan<string[]> names, byte index, GameVersion game, uint pid, ushort species, byte level)
+    public EncounterTrade4PID(ReadOnlySpan<string[]> names, byte index, GameVersion version, uint pid, ushort species, byte level)
     {
-        Version = game;
+        Version = version;
         Nicknames = EncounterUtil.GetNamesForLanguage(names, index);
         TrainerNames = EncounterUtil.GetNamesForLanguage(names, (uint)(index + (names[1].Length >> 1)));
         PID = pid;
@@ -77,8 +77,8 @@ public sealed record EncounterTrade4PID : IEncounterable, IEncounterMatch, IEnco
 
     public PK4 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
     {
+        int language = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language);
         var version = this.GetCompatibleVersion(tr.Version);
-        int lang = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language, version);
         var pi = PersonalTable.DP[Species];
         var pk = new PK4
         {
@@ -94,14 +94,14 @@ public sealed record EncounterTrade4PID : IEncounterable, IEncounterMatch, IEnco
 
             ID32 = ID32,
             Version = version,
-            Language = GetReceivedLanguage(lang, version),
+            Language = GetReceivedLanguage(language, version),
             OriginalTrainerGender = OTGender,
-            OriginalTrainerName = TrainerNames.Span[lang],
+            OriginalTrainerName = TrainerNames.Span[language],
 
             OriginalTrainerFriendship = pi.BaseFriendship,
 
             IsNicknamed = true,
-            Nickname = Nicknames.Span[lang],
+            Nickname = Nicknames.Span[language],
 
             HandlingTrainerName = tr.OT,
             HandlingTrainerGender = tr.Gender,
@@ -121,10 +121,10 @@ public sealed record EncounterTrade4PID : IEncounterable, IEncounterMatch, IEnco
         return pk;
     }
 
-    private int GetReceivedLanguage(int lang, GameVersion game)
+    private int GetReceivedLanguage(int lang, GameVersion version)
     {
         if (Version == GameVersion.DPPt)
-            return GetLanguageDPPt(lang, game);
+            return GetLanguageDPPt(lang, version);
 
         // HG/SS
         // Has English Language ID for all except English origin, which is French
@@ -133,13 +133,13 @@ public sealed record EncounterTrade4PID : IEncounterable, IEncounterMatch, IEnco
         return lang;
     }
 
-    private int GetLanguageDPPt(int lang, GameVersion game)
+    private int GetLanguageDPPt(int lang, GameVersion version)
     {
         // Has German Language ID for all except German origin, which is English
         if (Species == (int)Core.Species.Magikarp)
             return (int)(lang == (int)LanguageID.German ? LanguageID.English : LanguageID.German);
         // All other trades received (D/P only): English games have a Japanese language ID instead of English.
-        if (game is not GameVersion.Pt && lang == (int)LanguageID.English)
+        if (version is not GameVersion.Pt && lang == (int)LanguageID.English)
             return (int)LanguageID.Japanese;
         return lang;
     }
@@ -215,6 +215,14 @@ public sealed record EncounterTrade4PID : IEncounterable, IEncounterMatch, IEnco
     public EncounterMatchRating GetMatchRating(PKM pk) => EncounterMatchRating.Match;
 
     #endregion
+
+    /// <summary>
+    /// Language obtained by the trainer will be of a foreign language ID.
+    /// </summary>
+    /// <remarks>
+    /// Does NOT indicate for bugged D/P English origin, which is Japanese.
+    /// </remarks>
+    public bool IsLanguageSwap => Species is (ushort)Core.Species.Magikarp or (ushort)Core.Species.Pikachu;
 
     public int DetectOriginalLanguage(PKM pk)
     {

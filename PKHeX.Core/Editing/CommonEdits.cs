@@ -34,14 +34,15 @@ public static class CommonEdits
     }
 
     /// <summary>
-    /// Clears the <see cref="PKM.Nickname"/> to the default value.
+    /// Sets the <see cref="PKM.Nickname"/> to the default value of the current species and language.
     /// </summary>
     /// <param name="pk">Pokémon to modify.</param>
+    /// <returns>Default nickname for the current species and language.</returns>
     public static string ClearNickname(this PKM pk)
     {
         pk.IsNicknamed = false;
         string nick = SpeciesName.GetSpeciesNameGeneration(pk.Species, pk.Language, pk.Format);
-        pk.Nickname = nick;
+        pk.SetString(pk.NicknameTrash, nick, nick.Length, StringConverterOption.None);
         if (pk is GBPKM pk12)
             pk12.SetNotNicknamed();
         return nick;
@@ -192,8 +193,10 @@ public static class CommonEdits
             // Under this scenario, just apply maximum EVs (65535).
             if (!evs.ContainsAnyExcept(0))
                 gb.MaxEVs();
-            else
+            else if (evs.ContainsAnyExceptInRange(0, 252)) // Any specified above 252
                 gb.SetEVs(evs);
+            else
+                gb.SetSqrtEVs(evs);
         }
         else
         {
@@ -404,7 +407,7 @@ public static class CommonEdits
     {
         if (pk.IsEgg)
             return;
-        pk.CurrentLevel = 100;
+        pk.CurrentLevel = Experience.MaxLevel;
         if (pk is ICombatPower pb)
             pb.ResetCP();
     }

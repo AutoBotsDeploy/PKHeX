@@ -72,8 +72,9 @@ public partial class SAV_Trainer : Form
 
     private void GetComboBoxes()
     {
+        var sources = GameInfo.Sources;
         CB_3DSReg.InitializeBinding();
-        CB_3DSReg.DataSource = GameInfo.Regions;
+        CB_3DSReg.DataSource = new BindingSource(sources.Regions, string.Empty);
         CB_Language.InitializeBinding();
         CB_Language.DataSource = GameInfo.LanguageDataSource(SAV.Generation);
 
@@ -334,8 +335,10 @@ public partial class SAV_Trainer : Form
 
     private void UpdateCountry(object sender, EventArgs e)
     {
-        int index;
-        if (sender is ComboBox c && (index = WinFormsUtil.GetIndex(c)) > 0)
+        if (sender is not ComboBox c)
+            return;
+        int index = WinFormsUtil.GetIndex(c);
+        if (index > 0)
             Main.SetCountrySubRegion(CB_Region, $"sr_{index:000}");
     }
 

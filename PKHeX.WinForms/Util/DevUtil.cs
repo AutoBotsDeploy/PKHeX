@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Windows.Forms;
 using PKHeX.Core;
 using PKHeX.WinForms.Controls;
@@ -11,12 +13,14 @@ namespace PKHeX.WinForms;
 
 public static class DevUtil
 {
-    public static void AddControl(ToolStripDropDownItem t)
+    public static void AddDeveloperControls(ToolStripDropDownItem t, List<IPlugin> plugins)
     {
-        t.DropDownItems.Add(GetTranslationUpdater());
+        t.DropDownItems.Add(GetTranslationUpdater(Keys.D));
+        t.DropDownItems.Add(GetPogoPickleReload(Keys.P));
+        t.DropDownItems.Add(GetHexImporter(Keys.I));
+        t.DropDownItems.Add(GetPluginInfo(Keys.L, plugins));
     }
 
-    private static readonly string[] Languages = ["ja", "fr", "it", "de", "es", "ko", "zh-Hans", "zh-Hant"];
     private static string DefaultLanguage => Main.CurrentLanguage;
 
     public static bool IsUpdatingTranslations { get; private set; }
@@ -35,15 +39,96 @@ public static class DevUtil
         IsUpdatingTranslations = false;
     }
 
-    private static ToolStripMenuItem GetTranslationUpdater()
+    private static ToolStripMenuItem GetHexImporter(Keys key)
     {
-        var ti = new ToolStripMenuItem
-        {
-            ShortcutKeys = Keys.Control | Keys.Alt | Keys.D,
-            Visible = false,
-        };
+        var ti = GetHiddenMenu(key);
+        ti.Click += (_, _) => OpenFileFromClipboardHex();
+        return ti;
+    }
+
+    private static ToolStripMenuItem GetTranslationUpdater(Keys key)
+    {
+        var ti = GetHiddenMenu(key);
         ti.Click += (_, _) => UpdateAll();
         return ti;
+    }
+
+    private static ToolStripMenuItem GetPogoPickleReload(Keys key)
+    {
+        var ti = GetHiddenMenu(key);
+        ti.Click += (_, _) => EncountersGO.Reload();
+        return ti;
+    }
+
+    private static ToolStripMenuItem GetPluginInfo(Keys key, List<IPlugin> plugins)
+    {
+        var ti = GetHiddenMenu(key);
+        ti.Click += (_, _) => DisplayPluginList(plugins);
+        return ti;
+    }
+
+    private static ToolStripMenuItem GetHiddenMenu(Keys key) => new()
+    {
+        ShortcutKeys = Keys.Control | Keys.Alt | key,
+        Visible = false,
+    };
+
+    private static void OpenFileFromClipboardHex()
+    {
+        var hex = Clipboard.GetText().Trim();
+        if (string.IsNullOrEmpty(hex))
+        {
+            WinFormsUtil.Alert("Clipboard is empty.");
+            return;
+        }
+        try
+        {
+            var data = Convert.FromHexString(hex.Replace(" ", ""));
+            Application.OpenForms.OfType<Main>().First().OpenFile(data, "", "");
+        }
+        catch (FormatException)
+        {
+            WinFormsUtil.Alert("Clipboard does not contain valid hex data.");
+        }
+    }
+
+    private static void DisplayPluginList(List<IPlugin> plugins)
+    {
+        var text = new StringBuilder();
+
+        text.AppendLine($"Loaded {plugins.Count} plugins:");
+        if (plugins.Count == 0)
+        {
+            text.AppendLine("None.");
+            WinFormsUtil.Alert(text.ToString());
+            return;
+        }
+
+        List<(IPlugin Plugin, string Group)> loaded = [];
+        foreach (var p in plugins)
+        {
+            var assembly = p.GetType().Assembly;
+            var fullName = assembly.FullName;
+            if (fullName != null)
+            {
+                var culture = fullName.IndexOf("Culture", StringComparison.Ordinal);
+                if (culture != -1)
+                    fullName = fullName[..(culture - 2)];
+                if (fullName.EndsWith(".0"))
+                    fullName = fullName[..^2];
+            }
+            loaded.Add(new(p, fullName ?? "Unknown"));
+        }
+
+        foreach (var group in loaded.GroupBy(z => z.Group).OrderBy(z => z.Key))
+        {
+            text.AppendLine(group.Key);
+            foreach (var p in group.OrderBy(z => z.Plugin.Name))
+                text.AppendLine($"- {p.Plugin.Name}");
+        }
+
+
+        WinFormsUtil.Alert(text.ToString());
     }
 
     private static void UpdateTranslations()
@@ -52,7 +137,7 @@ public static class DevUtil
         var types = assembly.GetTypes();
 
         // Trigger a translation then dump all.
-        foreach (var lang in Languages) // get all languages ready to go
+        foreach (var lang in GameLanguage.AllSupportedLanguages) // get all languages ready to go
             _ = WinFormsTranslator.GetDictionary(lang);
         WinFormsTranslator.SetUpdateMode();
         WinFormsTranslator.LoadSettings<PKHeXSettings>(DefaultLanguage);
@@ -82,9 +167,16 @@ public static class DevUtil
         Application.Exit();
     }
 
+    /// <summary>
+    /// All enum types that should be translated in the WinForms GUI.
+    /// </summary>
+    /// <remarks>
+    /// Each enum's defined values will be dumped and available for translation.
+    /// </remarks>
     private static readonly Type[] EnumTypesToTranslate =
     [
         typeof(StatusCondition),
+        typeof(StatusType),
         typeof(PokeSize),
         typeof(PokeSizeDetailed),
 
@@ -98,20 +190,30 @@ public static class DevUtil
         typeof(Stamp7),
         typeof(FestivalPlazaFacilityColor),
         typeof(PlayerSkinColor8),
+        typeof(BattlePassType),
     ];
 
+    /// <summary>
+    /// Create fake controls that may not be currently present in the form, but are used for localization stubs.
+    /// </summary>
     private static IEnumerable<Control> GetExtraControls()
     {
         foreach (var name in SlotList.GetEnumNames().Distinct())
             yield return new Label { Name = $"{nameof(Main)}.L_{name}", Text = name };
     }
 
+    /// <summary>
+    /// Forms that should not be translated, or are dynamic and should not be included in the dump.
+    /// </summary>
     private static readonly string[] LoadBanlist =
     [
         nameof(SplashScreen),
         nameof(PokePreview),
     ];
 
+    /// <summary>
+    /// Controls that should not be translated, or are dynamic and should not be included in the dump.
+    /// </summary>
     private static readonly string[] Banlist =
     [
         "Gender=", // editor gender labels
@@ -133,14 +235,34 @@ public static class DevUtil
         $"{nameof(SAV_OPower)}.L_", // Dynamic label
     ];
 
+    // paths should match the project structure, so that the files are in the correct place when the logic updates them.
     private static void DumpStringsMessage() => DumpStrings(typeof(MessageStrings), false, "PKHeX.Core", "Resources", "text", "program");
-    private static void DumpStringsLegality() => DumpStrings(typeof(LegalityCheckStrings), true, "PKHeX.Core", "Resources", "legality", "checks");
+    private static void DumpStringsLegality()
+    {
+        ReadOnlySpan<string> rel = ["PKHeX.Core", "Resources", "localize"];
+        DumpJson(EncounterDisplayLocalization.Cache, rel);
+        DumpJson(MoveSourceLocalization.Cache, rel);
+        DumpJson(LegalityCheckLocalization.Cache, rel);
+        DumpJson(MoveSourceLocalization.Cache, rel);
+    }
 
-    private static void DumpStrings(Type t, bool sorted, params string[] rel)
+    private static void DumpJson<T>(LocalizationStorage<T> set, ReadOnlySpan<string> rel) where T : notnull
+    {
+        var dir = GetResourcePath([.. rel, set.Name]);
+        var all = set.GetAll();
+        foreach (var (lang, entries) in all)
+        {
+            var location = Path.Combine(dir, set.GetFileName(lang));
+            var json = JsonSerializer.Serialize(entries, set.Info);
+            File.WriteAllText(location, json);
+        }
+    }
+
+    private static void DumpStrings(Type t, bool sorted, params ReadOnlySpan<string> rel)
     {
         var dir = GetResourcePath(rel);
         DumpStrings(t, sorted, DefaultLanguage, dir);
-        foreach (var lang in Languages)
+        foreach (var lang in GameLanguage.AllSupportedLanguages)
             DumpStrings(t, sorted, lang, dir);
     }
 
@@ -172,7 +294,7 @@ public static class DevUtil
         return Path.Combine(dir, fn);
     }
 
-    private static string GetResourcePath(params string[] subdir)
+    private static string GetResourcePath(params ReadOnlySpan<string> subdir)
     {
         // Starting from the executable path, crawl upwards until we get to the repository/sln root
         const string repo = "PKHeX";

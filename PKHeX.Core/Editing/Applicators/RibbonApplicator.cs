@@ -16,13 +16,30 @@ public static class RibbonApplicator
     /// <inheritdoc cref="SetAllValidRibbons(PKM)"/>
     public static void SetAllValidRibbons(LegalityAnalysis la)
     {
-        var args = new RibbonVerifierArguments(la.Entity, la.EncounterMatch, la.Info.EvoChainsAllGens);
+        var pk = la.Entity;
+        var args = new RibbonVerifierArguments(pk, la.EncounterMatch, la.Info.EvoChainsAllGens);
         SetAllRibbonState(args, true);
         FixInvalidRibbons(args);
 
-        // Ribbon Deadlock
-        if (la.Entity is IRibbonSetCommon6 c6)
+        if (la.Entity.IsEgg)
+            return;
+
+        if (pk is IRibbonSetCommon6 c6)
+        {
+            // Medal Deadlock
+            if (pk is ISuperTrain s && la.Info.EvoChainsAllGens.HasVisitedGen6)
+            {
+                s.SuperTrainBitFlags = RibbonRules.SetSuperTrainSupremelyTrained(s.SuperTrainBitFlags);
+                if (pk.Format == 6) // cleared on 6->7 transfer; only set in Gen6.
+                {
+                    s.SecretSuperTrainingUnlocked = true;
+                    s.SuperTrainSupremelyTrained = true;
+                }
+                c6.RibbonTraining = true;
+            }
+            // Ribbon Deadlock
             InvertDeadlockContest(c6, true);
+        }
     }
 
     /// <summary>
@@ -59,7 +76,7 @@ public static class RibbonApplicator
 
         if (desiredState)
         {
-            // Skip Marks, don't set them.
+            // Skip personality marks (Encounter specific, never required); don't set them.
             for (RibbonIndex r = 0; r <= RibbonIndex.MasterRank; r++)
                 r.Fix(args, desiredState);
             for (RibbonIndex r = RibbonIndex.Hisui; r < RibbonIndex.MAX_COUNT; r++)
@@ -75,6 +92,7 @@ public static class RibbonApplicator
 
     private static void InvertDeadlockContest(IRibbonSetCommon6 c6, bool desiredState)
     {
+        // Contest Star is a deadlock ribbon with the Master ribbons, as it needs all five Master ribbons to be true.
         if (desiredState)
             c6.RibbonContestStar = c6.HasAllContestRibbons();
     }

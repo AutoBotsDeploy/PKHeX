@@ -2,6 +2,10 @@ using System;
 
 namespace PKHeX.Core;
 
+/// <summary>
+/// Logic for converting a <see cref="string"/> for Generation 2.
+/// </summary>
+/// <remarks>Slight differences when compared to <seealso cref="StringConverter1"/>.</remarks>
 public static class StringConverter2
 {
     public const byte TerminatorCode = StringConverter1.TerminatorCode;
@@ -14,18 +18,7 @@ public static class StringConverter2
     public const char TradeOT = StringConverter1.TradeOT;
     public const char LineBreak = '⏎'; // Mail
 
-    public static bool GetIsJapanese(ReadOnlySpan<char> str) => AllJapanese(str);
-
-    private static bool AllJapanese(ReadOnlySpan<char> str)
-    {
-        foreach (var x in str)
-        {
-            if (!IsJapanese(x))
-                return false;
-        }
-        return true;
-        static bool IsJapanese(char c) => c is >= '\u3000' and <= '\u30FC';
-    }
+    public static bool GetIsJapanese(ReadOnlySpan<char> str) => StringConverter1.GetIsJapanese(str);
 
     public static bool GetIsEnglish(ReadOnlySpan<char> str) => !GetIsJapanese(str);
     public static bool GetIsJapanese(ReadOnlySpan<byte> raw) => AllCharsInTable(raw, TableJP);

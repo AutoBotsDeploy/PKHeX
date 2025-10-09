@@ -58,9 +58,9 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IEncoun
     public byte LevelMin => Level;
     public byte LevelMax => Level;
 
-    public EncounterTrade8b(ReadOnlySpan<string[]> names, byte index, GameVersion game)
+    public EncounterTrade8b(ReadOnlySpan<string[]> names, byte index, GameVersion version)
     {
-        Version = game;
+        Version = version;
         Nicknames = EncounterUtil.GetNamesForLanguage(names, index);
         TrainerNames = EncounterUtil.GetNamesForLanguage(names, (uint)(index + (names[1].Length >> 1)));
     }
@@ -74,8 +74,8 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IEncoun
 
     public PB8 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
     {
+        int language = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language);
         var version = this.GetCompatibleVersion(tr.Version);
-        int lang = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language, version);
         var pi = PersonalTable.BDSP[Species, Form];
         var pk = new PB8
         {
@@ -93,14 +93,14 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IEncoun
 
             ID32 = ID32,
             Version = version,
-            Language = lang,
+            Language = language,
             OriginalTrainerGender = OTGender,
-            OriginalTrainerName = TrainerNames.Span[lang],
+            OriginalTrainerName = TrainerNames.Span[language],
 
             OriginalTrainerFriendship = OriginalTrainerFriendship,
 
             IsNicknamed = IsFixedNickname,
-            Nickname = IsFixedNickname ? Nicknames.Span[lang] : SpeciesName.GetSpeciesNameGeneration(Species, lang, Generation),
+            Nickname = IsFixedNickname ? Nicknames.Span[language] : SpeciesName.GetSpeciesNameGeneration(Species, language, Generation),
             HeightScalar = HeightScalar,
             WeightScalar = WeightScalar,
             HandlingTrainerName = tr.OT,

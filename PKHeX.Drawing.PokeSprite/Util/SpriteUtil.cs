@@ -200,7 +200,7 @@ public static class SpriteUtil
         const int bpp = 4;
         int start = bpp * SpriteWidth * (SpriteHeight - 1);
         var level = pk.CurrentLevel;
-        if (level == 100)
+        if (level == Experience.MaxLevel)
             return ImageUtil.WritePixels(img, Color.Lime, start, start + (SpriteWidth * bpp));
 
         var pct = Experience.GetEXPToLevelUpPercentage(level, pk.EXP, pk.PersonalInfo.EXPGrowth);
@@ -332,5 +332,19 @@ public static class SpriteUtil
         if (value.HasFlag(StatusCondition.Freeze))
             return Resources.sickfrostbite;
         return null;
+    }
+
+    public static Image? GetStatusSprite(this StatusType value)
+    {
+        return value switch
+        {
+            StatusType.None => null,
+            StatusType.Paralysis => Resources.sickparalyze,
+            StatusType.Sleep => Resources.sicksleep,
+            StatusType.Freeze => Resources.sickfrostbite,
+            StatusType.Burn => Resources.sickburn,
+            StatusType.Poison => Resources.sickpoison,
+            _ => null,
+        };
     }
 }
