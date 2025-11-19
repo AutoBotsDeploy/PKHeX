@@ -53,7 +53,7 @@ public abstract record EncounterStatic8Nest<T>(GameVersion Version)
 
     public PK8 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
     {
-        int language = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language);
+        int language = (int)Language.GetSafeLanguage789((LanguageID)tr.Language);
         var version = this.GetCompatibleVersion(tr.Version);
         var pi = Info;
         var pk = new PK8
@@ -287,10 +287,14 @@ public abstract record EncounterStatic8Nest<T>(GameVersion Version)
         if (pk.IsShiny)
             return true;
 
-        return TryGetSeed(pk, out _);
+        var pidiv = TryGetSeed(pk, out _);
+        if (pidiv == SeedCorrelationResult.Success)
+            return true;
+
+        return false;
     }
 
-    public bool TryGetSeed(PKM pk, out ulong seed)
+    public SeedCorrelationResult TryGetSeed(PKM pk, out ulong seed)
     {
         var ec = pk.EncryptionConstant;
         var pid = pk.PID;
@@ -298,16 +302,18 @@ public abstract record EncounterStatic8Nest<T>(GameVersion Version)
         foreach (var s in seeds)
         {
             if (IsMatchSeed(pk, seed = s))
-                return true;
+                return SeedCorrelationResult.Success;
         }
         seeds = new XoroMachineSkip(ec, pid ^ 0x1000_0000);
         foreach (var s in seeds)
         {
             if (IsMatchSeed(pk, seed = s))
-                return true;
+                return SeedCorrelationResult.Success;
         }
         seed = 0;
-        return false;
+        if (pk.IsShiny)
+            return SeedCorrelationResult.Ignore;
+        return SeedCorrelationResult.Invalid;
     }
 
     protected virtual bool IsMatchSeed(PKM pk, ulong seed) => Verify(pk, seed);

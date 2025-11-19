@@ -6,11 +6,11 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 7 Mystery Gift Template File (LGP/E)
 /// </summary>
-public sealed class WB7 : DataMysteryGift, ILangNick, IAwakened, IRelearn, IEncounterServerDate, INature, ILangNicknamedTemplate,
+public sealed class WB7(Memory<byte> raw) : DataMysteryGift(raw), ILangNick, IAwakened, IRelearn, IEncounterServerDate,
+    INature, ILangNicknamedTemplate,
     IMetLevel, IRestrictVersion, IRibbonSetEvent3, IRibbonSetEvent4
 {
     public WB7() : this(new byte[Size]) { }
-    public WB7(Memory<byte> raw) : base(raw) { }
     public override WB7 Clone() => new(Data.ToArray());
 
     public const int Size = 0x310;
@@ -43,7 +43,7 @@ public sealed class WB7 : DataMysteryGift, ILangNick, IAwakened, IRelearn, IEnco
         set => WriteUInt16LittleEndian(Card, (ushort)value);
     }
 
-    public override string CardTitle
+    public string CardTitleDummy
     {
         // Max len 36 char, followed by null terminator
         get => StringConverter8.GetString(Card.Slice(2, 0x4A));
@@ -54,6 +54,18 @@ public sealed class WB7 : DataMysteryGift, ILangNick, IAwakened, IRelearn, IEnco
     {
         get => ReadUInt32LittleEndian(Card[0x4C..]);
         set => WriteUInt32LittleEndian(Card[0x4C..], value);
+    }
+
+    public override int CardTitleIndex
+    {
+        get => Data[CardStart + 0x50];
+        set => Data[CardStart + 0x50] = (byte)value;
+    }
+
+    public override string CardTitle
+    {
+        get => this.GetTitleFromIndex();
+        set => throw new Exception();
     }
 
     private uint Year
@@ -153,11 +165,7 @@ public sealed class WB7 : DataMysteryGift, ILangNick, IAwakened, IRelearn, IEnco
         _ => Shiny.Never,
     };
 
-    private uint GetShinyXor()
-    {
-        var xor = PID ^ ID32;
-        return (xor >> 16) ^ (xor & 0xFFFF);
-    }
+    private uint GetShinyXor() => ShinyUtil.GetShinyXor(PID, ID32);
 
     public override uint ID32 { get => ReadUInt32LittleEndian(Card[0x68..]); set => WriteUInt32LittleEndian(Card[0x68..], value); }
     public override ushort TID16 { get => ReadUInt16LittleEndian(Card[0x68..]); set => WriteUInt16LittleEndian(Card[0x68..], value); }

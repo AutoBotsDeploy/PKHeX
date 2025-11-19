@@ -68,6 +68,7 @@ public static class AbilityChangeRules
     /// <returns>True if possible</returns>
     public static bool IsAbilityCapsuleAvailable(EvolutionHistory evosAll)
     {
+        // ZA: Not available
         if (evosAll.HasVisitedGen9)
             return true;
         if (evosAll.HasVisitedSWSH)
@@ -88,6 +89,7 @@ public static class AbilityChangeRules
     /// <returns>True if possible</returns>
     public static bool IsAbilityCapsulePossible(EvolutionHistory evosAll)
     {
+        // ZA: Not available
         if (evosAll.HasVisitedGen9 && IsCapsulePossible<PersonalTable9SV, PersonalInfo9SV, EvoCriteria>(evosAll.Gen9, PersonalTable.SV))
             return true;
         if (evosAll.HasVisitedSWSH && IsCapsulePossible<PersonalTable8SWSH, PersonalInfo8SWSH, EvoCriteria>(evosAll.Gen8, PersonalTable.SWSH))
@@ -108,7 +110,7 @@ public static class AbilityChangeRules
     /// <returns>True if possible</returns>
     public static bool IsAbilityPatchAvailable(EvolutionHistory evosAll)
     {
-        if (evosAll.HasVisitedGen9)
+        if (evosAll.HasVisitedGen9) // ZA: Not available
             return true;
         if (evosAll.HasVisitedSWSH || evosAll.HasVisitedBDSP)
             return true;
@@ -122,6 +124,7 @@ public static class AbilityChangeRules
     /// <returns>True if possible</returns>
     public static bool IsAbilityPatchPossible(EvolutionHistory evosAll)
     {
+        // ZA: Not available
         if (evosAll.HasVisitedSWSH && IsPatchPossible<PersonalTable8SWSH, PersonalInfo8SWSH, EvoCriteria>(evosAll.Gen8, PersonalTable.SWSH))
             return true;
         if (evosAll.HasVisitedBDSP && IsPatchPossible<PersonalTable8BDSP, PersonalInfo8BDSP, EvoCriteria>(evosAll.Gen8b, PersonalTable.BDSP))
@@ -138,7 +141,7 @@ public static class AbilityChangeRules
     /// <returns>True if possible</returns>
     public static bool IsAbilityPatchRevertAvailable(EvolutionHistory evosAll)
     {
-        if (evosAll.HasVisitedGen9)
+        if (evosAll.HasVisitedGen9) // ZA: Not available
             return true;
         return false;
     }
@@ -151,6 +154,7 @@ public static class AbilityChangeRules
     /// <returns>True if possible</returns>
     public static bool IsAbilityPatchRevertPossible(EvolutionHistory evosAll, int abilityIndex)
     {
+        // ZA: Not available
         if (evosAll.HasVisitedGen9 && IsRevertPossible<PersonalTable9SV, PersonalInfo9SV, EvoCriteria>(evosAll.Gen9, PersonalTable.SV, abilityIndex))
             return true;
         return false;
@@ -188,9 +192,16 @@ public static class AbilityChangeRules
         return IsFormChangeDifferentHidden(evos[0]);
     }
 
+    /// <inheritdoc cref="IsFormChangeDifferentHidden(ushort)"/>
     public static bool IsFormChangeDifferentHidden<TEvo>(TEvo first) where TEvo : ISpeciesForm =>
         first.Form != 0 && IsFormChangeDifferentHidden(first.Species);
 
+    /// <summary>
+    /// Checks if the species has a different hidden ability on another form (usually Form-0).
+    /// </summary>
+    /// <remarks>
+    /// Some forms are single ability, but if changed to another form, can be mutated to have an "inaccessible" index.
+    /// </remarks>
     public static bool IsFormChangeDifferentHidden(ushort species) => species switch
     {
         (int)Species.Giratina => true, // Form-0 is a/a/h
@@ -222,5 +233,25 @@ public static class AbilityChangeRules
 
         // Some species have a distinct hidden ability only on another form, and can change between that form and its current form.
         return abilityIndex == 1 && IsFormChangeDifferentHidden(evos[0]); // can't change to second index
+    }
+
+    /// <summary>
+    /// Gets the suggested ability value for an evolved entity based on its original encounter and current form.
+    /// </summary>
+    public static int GetExpectedAbilityZA<TEntity, TEnc>(TEntity pk, TEnc enc, int abilityFlag)
+        where TEntity : PKM
+        where TEnc : ISpeciesForm
+    {
+        var index = abilityFlag >> 1;
+        if (index is not (0 or 1 or 2))
+            index = 0;
+
+        var species = pk.Species;
+        var table = PersonalTable.ZA;
+        var pi = table[enc.Species, enc.Form];
+        if (FormInfo.HasMegaForm(species) || species is (int)Species.Aegislash)
+            pi = table[species, pk.Form];
+
+        return pi.GetAbilityAtIndex(index);
     }
 }

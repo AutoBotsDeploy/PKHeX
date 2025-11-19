@@ -7,14 +7,13 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 8b Mystery Gift Template File
 /// </summary>
-public sealed class WB8 : DataMysteryGift,
+public sealed class WB8(Memory<byte> raw) : DataMysteryGift(raw),
     ILangNick, INature, IRibbonIndex, IContestStatsReadOnly, IRelearn,
     ILangNicknamedTemplate, IEncounterServerDate, IMetLevel,
     IRibbonSetEvent3, IRibbonSetEvent4, IRibbonSetCommon3, IRibbonSetCommon4, IRibbonSetCommon6, IRibbonSetCommon7,
     IRibbonSetCommon8, IRibbonSetMark8
 {
     public WB8() : this(new byte[Size]) { }
-    public WB8(Memory<byte> raw) : base(raw) { }
     public override WB8 Clone() => new(Data.ToArray());
 
     public const int Size = 0x2DC;
@@ -59,7 +58,7 @@ public sealed class WB8 : DataMysteryGift,
     public bool GiftOncePerDay { get => (CardFlags & 4) == 4; set => CardFlags = (byte)((CardFlags & ~4) | (value ? 4 : 0)); }
     public override bool GiftUsed { get => false; set { }  }
 
-    public int CardTitleIndex
+    public override int CardTitleIndex
     {
         get => Data[CardStart + 0x12];
         set => Data[CardStart + 0x12] = (byte) value;
@@ -67,7 +66,7 @@ public sealed class WB8 : DataMysteryGift,
 
     public override string CardTitle
     {
-        get => "Mystery Gift"; // TODO: Use text string from CardTitleIndex
+        get => this.GetTitleFromIndex();
         set => throw new Exception();
     }
 
@@ -116,9 +115,7 @@ public sealed class WB8 : DataMysteryGift,
         // Player owned anti-shiny fixed PID
         if (ID32 == 0)
             return uint.MaxValue;
-
-        var xor = PID ^ ID32;
-        return (xor >> 16) ^ (xor & 0xFFFF);
+        return ShinyUtil.GetShinyXor(PID, ID32);
     }
 
     public override uint ID32
@@ -465,12 +462,6 @@ public sealed class WB8 : DataMysteryGift,
         if (EggLocation == 0)
             pk.EggLocation = Locations.Default8bNone;
 
-        if (Species == (int)Core.Species.Manaphy && IsEgg)
-        {
-            pk.EggLocation = Location;
-            pk.MetLocation = Locations.Default8bNone;
-            pk.IsNicknamed = false;
-        }
         pk.HealPP();
 
         if ((tr.Generation > Generation && OriginGame == 0) || !CanBeReceivedByVersion(pk.Version, pk))
@@ -489,7 +480,6 @@ public sealed class WB8 : DataMysteryGift,
         var date = IsDateRestricted && this.GetDistributionWindow(out var dt) ? dt.GetGenerateDate() : EncounterDate.GetDateSwitch();
         if (IsDateLockJapanese && language != (int)LanguageID.Japanese && date < new DateOnly(2022, 5, 20)) // 2022/05/18
             date = new DateOnly(2022, 5, 20); // Pick a better Start date that can be the language we're generating for.
-        pk.MetDate = date;
 
         var nickname_language = GetLanguage(language);
         pk.Language = nickname_language != 0 ? nickname_language : tr.Language;
@@ -506,7 +496,10 @@ public sealed class WB8 : DataMysteryGift,
         SetPINGA(pk, criteria);
 
         if (IsEgg)
-            SetEggMetData(pk);
+            SetEggMetData(pk, date);
+        else
+            pk.MetDate = date;
+
         pk.CurrentFriendship = pk.IsEgg ? pi.HatchCycles : pi.BaseFriendship;
 
         if (IsScalarFixed)
@@ -540,13 +533,17 @@ public sealed class WB8 : DataMysteryGift,
         _ => throw new ArgumentException(),
     };
 
-    private void SetEggMetData(PB8 pk)
+    private void SetEggMetData(PB8 pk, DateOnly date)
     {
         pk.IsEgg = true;
         pk.EggMetDate = EncounterDate.GetDateSwitch();
         pk.NicknameTrash.Clear();
         pk.Nickname = SpeciesName.GetEggName(pk.Language, Generation);
         pk.IsNicknamed = false;
+
+        pk.EggLocation = Location;
+        pk.MetLocation = Locations.Default8bNone;
+        pk.EggMetDate = date;
     }
 
     private void SetPINGA(PB8 pk, in EncounterCriteria criteria)
@@ -866,7 +863,7 @@ public sealed class WB8 : DataMysteryGift,
             if (GetRibbon(index))
                 return;
             var openIndex = RibbonSpan.IndexOf(RibbonByteNone);
-            ArgumentOutOfRangeException.ThrowIfNegative(openIndex, nameof(openIndex)); // Full?
+            ArgumentOutOfRangeException.ThrowIfNegative(openIndex); // Full?
             SetRibbonAtIndex(openIndex, (byte)index);
         }
         else

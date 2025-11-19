@@ -93,8 +93,8 @@ public abstract class InventoryPouch
             {
                 if ((uint)item.Index > maxItemID)
                     continue;
-                if (!HaX && !Info.IsLegal(Type, item.Index, item.Count))
-                    continue;
+                //if (!HaX && !Info.IsLegal(Type, item.Index, item.Count))
+                //    continue;
             }
             arr[ctr++] = arr[i]; // absorb down
         }
@@ -280,7 +280,7 @@ public abstract class InventoryPouch
             return false;
         }
 
-        if (count > 0)
+        if (count > 0 && item is not ColorfulScrew9a.ColorfulScrewItemIndex) // need to rewrite this later
             count = GetSuggestedItemCount(sav, item, count);
         return true;
     }
@@ -295,6 +295,8 @@ public abstract class InventoryPouch
             return 1;
         if (sav is SAV9SV)
             return InventoryPouch9.GetSuggestedCount(Type, item, requestVal);
+        if (sav is SAV9ZA za && item is ColorfulScrew9a.ColorfulScrewItemIndex)
+            return (int)za.Items.GetItemQuantity(ColorfulScrew9a.ColorfulScrewItemIndex); // Don't modify screw count
         return Math.Min(MaxCount, requestVal);
     }
 

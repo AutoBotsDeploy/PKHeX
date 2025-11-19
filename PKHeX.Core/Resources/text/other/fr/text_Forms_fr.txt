@@ -1135,3 +1135,7 @@ Onéreuse
 Exceptionnelle
 Téracristal
 Stellaire
+Moyenne
+Petite
+Grande
+Giga

@@ -70,6 +70,28 @@ internal static class BatchModifications
     }
 
     /// <summary>
+    /// Sets all legal Plus Move flag data for the Entity.
+    /// </summary>
+    /// <remarks>Only applicable for <see cref="IPlusRecord"/>.</remarks>
+    public static ModifyResult SetSuggestedMovePlusData(BatchInfo info, ReadOnlySpan<char> value)
+    {
+        var pk = info.Entity;
+        if (pk is not IPlusRecord t || pk.PersonalInfo is not IPermitPlus p)
+            return ModifyResult.Skipped;
+
+        PlusRecordApplicatorOption option;
+        if (IsNone(value))
+            option = PlusRecordApplicatorOption.None;
+        else if (IsAll(value))
+            option = PlusRecordApplicatorOption.LegalSeedTM;
+        else
+            option = PlusRecordApplicatorOption.LegalCurrent;
+
+        t.SetPlusFlags(p, option, info.Legality);
+        return ModifyResult.Modified;
+    }
+
+    /// <summary>
     /// Sets suggested ribbon data for the Entity.
     /// </summary>
     /// <remarks>If None, removes all ribbons possible.</remarks>
@@ -77,8 +99,10 @@ internal static class BatchModifications
     {
         if (IsNone(value))
             RibbonApplicator.RemoveAllValidRibbons(info.Legality);
-        else // All
+        else if (IsAll(value))
             RibbonApplicator.SetAllValidRibbons(info.Legality);
+        else // Only for current context
+            RibbonApplicator.SetAllValidRibbons(info.Entity, info.Legality.EncounterMatch, info.Legality.Info.EvoChainsAllGens.AsSingle(info.Entity.Context));
         return ModifyResult.Modified;
     }
 

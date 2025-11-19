@@ -82,7 +82,8 @@ public sealed class ShowdownSet : IBattleTemplate
     private void SanitizeResult(BattleTemplateLocalization localization)
     {
         ReviseContextIfPastGenForm(localization.Strings);
-        FormName = ShowdownParsing.GetFormNameFromShowdownFormName(Species, FormName, Ability);
+        if (localization.Strings.Language == LanguageID.English)
+            FormName = ShowdownParsing.GetFormNameFromShowdownFormName(Species, FormName, Ability);
         Form = ShowdownParsing.GetFormFromString(FormName, localization.Strings, Species, Context);
 
         // Handle edge case with fixed-gender forms.
@@ -523,7 +524,7 @@ public sealed class ShowdownSet : IBattleTemplate
     {
         if (nickname.Length == 0 || nickname == specForm)
             return specForm;
-        bool isNicknamed = SpeciesName.IsNicknamedAnyLanguage(species, nickname, context.Generation());
+        bool isNicknamed = SpeciesName.IsNicknamedAnyLanguage(species, nickname, context);
         if (!isNicknamed)
             return specForm;
         return $"{nickname} ({specForm})";

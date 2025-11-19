@@ -1135,3 +1135,7 @@ Kostbarkeits
 Edle
 Terastal
 Stellar
+Mittelgroße
+Kleine
+Große
+Extragroße

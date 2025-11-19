@@ -60,7 +60,7 @@ public sealed record EncounterStatic8a
     public PA8 ConvertToPKM(ITrainerInfo tr) => ConvertToPKM(tr, EncounterCriteria.Unrestricted);
     public PA8 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
     {
-        int language = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language);
+        int language = (int)Language.GetSafeLanguage789((LanguageID)tr.Language);
         var pi = PersonalTable.LA[Species, Form];
         var pk = new PA8
         {
@@ -301,7 +301,7 @@ public sealed record EncounterStatic8a
     }
     #endregion
 
-    public bool TryGetSeed(PKM pk, out ulong seed)
+    public SeedCorrelationResult TryGetSeed(PKM pk, out ulong seed)
     {
         // Check if it matches any single-roll seed.
         var param = GetParams();
@@ -311,9 +311,9 @@ public sealed record EncounterStatic8a
             if (!Overworld8aRNG.Verify(pk, s, param, HasFixedHeight, HasFixedWeight))
                 continue;
             seed = s;
-            return true;
+            return SeedCorrelationResult.Success;
         }
         seed = 0;
-        return false;
+        return SeedCorrelationResult.Ignore;
     }
 }

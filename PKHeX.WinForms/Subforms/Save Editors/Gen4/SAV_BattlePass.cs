@@ -34,8 +34,8 @@ public partial class SAV_BattlePass : Form
     private readonly string[] TrainerTitles1 = GameLanguage.GetStrings("trainer_title", Main.CurrentLanguage);
     private readonly string[] TrainerTitles2 = GameLanguage.GetStrings("trainer_title_npc", Main.CurrentLanguage);
 
-    private readonly IReadOnlyList<ComboItem> Languages = GameInfo.LanguageDataSource(3);
-    private readonly IReadOnlyList<ComboItem> EmptyCBList = [new ComboItem(string.Empty, 0)];
+    private readonly IReadOnlyList<ComboItem> Languages = GameInfo.LanguageDataSource(3, EntityContext.Gen3);
+    private readonly IReadOnlyList<ComboItem> EmptyCBList = [new(string.Empty, 0)];
     private const string NPC = "NPC";
     private string None => CharacterStyles[0];
 
@@ -161,7 +161,7 @@ public partial class SAV_BattlePass : Form
             titles1[i] += $" ({count})";
         }
 
-        List<ComboItem> cbList = [new ComboItem(None, 0)];
+        List<ComboItem> cbList = [new(None, 0)];
         Util.AddCBWithOffset(cbList, titles1, TitleOffset1);
         Util.AddCBWithOffset(cbList, titles2, TitleOffset2);
         return cbList;
@@ -241,8 +241,7 @@ public partial class SAV_BattlePass : Form
 
     private void ClickView(object sender, EventArgs e)
     {
-        var pb = WinFormsUtil.GetUnderlyingControl<PictureBox>(sender);
-        if (pb is null)
+        if (!WinFormsUtil.TryGetUnderlying<PictureBox>(sender, out var pb))
             return;
         int index = Box.Entries.IndexOf(pb);
 
@@ -305,8 +304,8 @@ public partial class SAV_BattlePass : Form
 
     private int GetSenderIndex(object sender)
     {
-        var pb = WinFormsUtil.GetUnderlyingControl<PictureBox>(sender);
-        ArgumentNullException.ThrowIfNull(pb);
+        if (!WinFormsUtil.TryGetUnderlying<PictureBox>(sender, out var pb))
+            ArgumentNullException.ThrowIfNull(pb);
         var index = Box.Entries.IndexOf(pb);
         return index;
     }

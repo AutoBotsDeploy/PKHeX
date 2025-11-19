@@ -1,7 +1,58 @@
 PKHeX - By Kaphotics
 http://projectpokemon.org/pkhex/
 
-25/09/25 - New Update:
+25/11/16 - New Update:
+ - Legality: Improved location ID detection of wild encounters, should work for 99.9%.
+ - - Crossovers are not currently handled for detecting location IDs. Generating from encounter template is 100% legal.
+ - - Fixed: Gen9a Ability change rules for Z-A have been updated to reflect form change behavior and encounter selection.
+ - - Fixed: Gen9a minimum move count rules have been updated to ignore optional relearn moves (still not perfect).
+ - - Fixed: Gen8 Raid shinies no longer flagged illegal, rather unverified like before.
+ - - Fixed: Gen8/8b now allow Rare Candy @ lvl100 triggering evolution. Thanks JeongJeong !
+ - Fixed: Running PKHeX with LATAM language selected no longer crashes for past-gen string fetches.
+ - Fixed: Gen9a Colorful Screw quantity can now be edited again. Previous release had prevented changes so Give All did not set to 995.
+ - Changed: Gen9a Alpha IVs from generated templates are more random than before.
+ - Changed: Entity Editor move edit dropdown now shows egg moves/encounter moves in green if possible for the current entity.
+
+25/11/07 - New Update: (246496) [11486487]
+ - Fixed inventory edits.
+
+25/11/06 - New Update:
+ - Added Diancite, Delphoxite, Sport Ball as released items.
+ - Legality:
+ - - Checks for Z-A improved, but wild encounter location ID recognition outside of Wild Areas still needs work.
+ - - Please do not report issues with this release's handling with legality/encounters. We are aware of what still needs work.
+ - Fixed: Gen9a Pokédex edits now retain Charizard-Y mega seen bitflag.
+ - Fixed: Gen9a Pokédex registering now sets applicable alternate form flags the same way the game normally grants.
+ - Fixed: Gen9a Species names for LATAM language now load correctly.
+ - Fixed: Gen9a Inventory editor no longer treats all acquired items as "NEW" when saving.
+ - Fixed: Gen9a Inventory editor no longer modifies Colorful Screw quantity when giving all.
+ - Fixed: Gen9a Scale evaluation now uses the less-detailed size labels to match the appearance in-game.
+ - Fixed: Gen9a Box/PC data file I/O now works as expected.
+ - Fixed: Friendship value now loads correctly when viewing a PKM. Thanks @DiogoOliveiraReis !
+ - Changed: Gen9a Event Flag editor now shows more event block tabs; existing tabs have been renamed to match their block's function.
+ - Added: Gen9a Fashion editor can now give all as owned via a button at the bottom of the form. Hold shift to give all for every tab.
+ - Added: Gen9a Trainer editor now has a button for collecting all Colorful Screws, which updates your inventory count.
+ - Added: Gen9a ConfigSave in Block Data can be used to change the Text speed to 3 (instant).
+ - Added: Gen9 S/V Fashion Editor added, matching the features available in Z-A's new fashion editor. Thanks @foohyfooh !
+ - Added: Encounter Database can now modify the Encounter Criteria directly instead of inferring from main window tabs.
+
+25/10/26 - New Update: (212334) [11239991]
+ - Added: Support for Legends: Z-A.
+ - Legality:
+ - - Initial handling for recognizing and generating encounters from Z-A.
+ - - Please do not report issues with this release's handling with legality/encounters. We are aware of what still needs work.
+ - Notes:
+ - - All encounters can be traced back to an RNG seed.
+ - - With multiple shiny rolls (wild only) or shinies, this calculation is not instant (>15 seconds), so it is only done for non-shiny 1-rolls.
+ - - Do not be lulled into a false sense of safety that PKHeX does not flag your modified Pokémon's PID/IVs.
+ - - Cheat codes that modify the RNG generation routine is detectable in the resulting Pokémon, as previously mentioned in Discord.
+ - - Ability editing via the GUI has been forced into All-Abilities mode due to GameFreak not updating a Pokémon's ability on evolution.
+ - Added: Gen9a: Pokédex and Trainer Info editor are available.
+ - Added: Gen9a: Event block editors are available. 64-bit hash => text is not provided at this time.
+ - Added: Gen9a: Fashion block editors are available. Fashion-item ID => text is not provided at this time.
+ - Added: Bulk (Verify All) checks for issues with the save file, such as mismatched Fused slots or Mega stone inventory state issues.
+
+25/09/25 - New Update: (315492) [11027657]
  - Legality:
  - - Added the Shiny Miraidon/Koraidon mystery gifts, and the other Ruins gifts.
  - - Added Reg J mythical participation ribbon legality.

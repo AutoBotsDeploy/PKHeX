@@ -1,3 +1,5 @@
+using PKHeX.Core;
+
 namespace PKHeX.WinForms.Controls
 {
     partial class PKMEditor
@@ -270,6 +272,7 @@ namespace PKHeX.WinForms.Controls
             Tab_Moves = new System.Windows.Forms.TabPage();
             Tab_Cosmetic = new System.Windows.Forms.TabPage();
             Tab_OTMisc = new System.Windows.Forms.TabPage();
+            B_PlusRecord = new System.Windows.Forms.Button();
             Hidden_TC.SuspendLayout();
             Hidden_Main.SuspendLayout();
             FLP_Main.SuspendLayout();
@@ -1025,6 +1028,7 @@ namespace PKHeX.WinForms.Controls
             DEV_Ability.Size = new System.Drawing.Size(126, 25);
             DEV_Ability.TabIndex = 14;
             DEV_Ability.Visible = false;
+            TB_AbilityNumber.Click += ClickManualAbility;
             // 
             // TB_AbilityNumber
             // 
@@ -1037,6 +1041,7 @@ namespace PKHeX.WinForms.Controls
             TB_AbilityNumber.TabIndex = 14;
             TB_AbilityNumber.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             TB_AbilityNumber.Visible = false;
+            TB_AbilityNumber.Click += ClickManualAbility;
             // 
             // FLP_Friendship
             // 
@@ -2240,10 +2245,11 @@ namespace PKHeX.WinForms.Controls
             FLP_MoveFlags.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             FLP_MoveFlags.Controls.Add(B_RelearnFlags);
             FLP_MoveFlags.Controls.Add(B_MoveShop);
+            FLP_MoveFlags.Controls.Add(B_PlusRecord);
             FLP_MoveFlags.Location = new System.Drawing.Point(0, 0);
             FLP_MoveFlags.Margin = new System.Windows.Forms.Padding(0);
             FLP_MoveFlags.Name = "FLP_MoveFlags";
-            FLP_MoveFlags.Size = new System.Drawing.Size(189, 31);
+            FLP_MoveFlags.Size = new System.Drawing.Size(438, 25);
             FLP_MoveFlags.TabIndex = 100;
             FLP_MoveFlags.WrapContents = false;
             // 
@@ -3377,6 +3383,19 @@ namespace PKHeX.WinForms.Controls
             Tab_OTMisc.Text = "OT/Misc";
             Tab_OTMisc.UseVisualStyleBackColor = true;
             // 
+            // B_PlusRecord
+            // 
+            B_PlusRecord.AutoSize = true;
+            B_PlusRecord.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            B_PlusRecord.Location = new System.Drawing.Point(293, 1);
+            B_PlusRecord.Margin = new System.Windows.Forms.Padding(2);
+            B_PlusRecord.Name = "B_PlusRecord";
+            B_PlusRecord.Size = new System.Drawing.Size(96, 27);
+            B_PlusRecord.TabIndex = 12;
+            B_PlusRecord.Text = "Plus Flags";
+            B_PlusRecord.UseVisualStyleBackColor = true;
+            B_PlusRecord.Click += B_PlusRecord_Click;
+            // 
             // PKMEditor
             // 
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Inherit;
@@ -3770,5 +3789,6 @@ namespace PKHeX.WinForms.Controls
         private System.Windows.Forms.FlowLayoutPanel FLP_PokeStarFame;
         private System.Windows.Forms.Label L_PokeStarFame;
         private System.Windows.Forms.NumericUpDown NUD_PokeStarFame;
+        private System.Windows.Forms.Button B_PlusRecord;
     }
 }

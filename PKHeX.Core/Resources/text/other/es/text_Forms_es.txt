@@ -1135,3 +1135,7 @@ Opulenta
 Exquisita
 Teracristal
 Astral
+Mediana
+Pequeña
+Grande
+Enorme

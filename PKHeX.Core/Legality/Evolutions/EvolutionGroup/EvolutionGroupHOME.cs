@@ -13,7 +13,13 @@ public sealed class EvolutionGroupHOME : IEvolutionGroup
     private static readonly EvolutionEnvironment8b BDSP = new();
     private static readonly EvolutionEnvironment9 SV = new();
 
-    public IEvolutionGroup? GetNext(PKM pk, EvolutionOrigin enc) => null;
+    public IEvolutionGroup? GetNext(PKM pk, EvolutionOrigin enc)
+    {
+        return null; // TODO HOME ZA2: Re-enable when we have more info.
+        // if (pk.Format <= 9 && pk.Context is not EntityContext.Gen9a)
+        //     return null;
+        // return EvolutionGroupHOME.Instance;
+    }
 
     public IEvolutionGroup? GetPrevious(PKM pk, EvolutionOrigin enc)
     {
@@ -230,7 +236,7 @@ public sealed class EvolutionGroupHOME : IEvolutionGroup
 public sealed class EvolutionEnvironment8 : IEvolutionEnvironment
 {
     private static readonly EvolutionTree Tree = EvolutionTree.Evolves8;
-    private static EvolutionRuleTweak Tweak => EvolutionRuleTweak.Default;
+    private static EvolutionRuleTweak Tweak => EvolutionRuleTweak.Level100;
 
     public bool TryDevolve<T>(T head, PKM pk, byte currentMaxLevel, byte levelMin, bool skipChecks, out EvoCriteria result) where T : ISpeciesForm
     {
@@ -274,7 +280,7 @@ public sealed class EvolutionEnvironment8a : IEvolutionEnvironment
 public sealed class EvolutionEnvironment8b : IEvolutionEnvironment
 {
     private static readonly EvolutionTree Tree = EvolutionTree.Evolves8b;
-    private static EvolutionRuleTweak Tweak => EvolutionRuleTweak.Default;
+    private static EvolutionRuleTweak Tweak => EvolutionRuleTweak.Level100;
 
     public bool TryDevolve<T>(T head, PKM pk, byte currentMaxLevel, byte levelMin, bool skipChecks, out EvoCriteria result) where T : ISpeciesForm
         => Tree.Reverse.TryDevolve(head, pk, currentMaxLevel, levelMin, skipChecks, Tweak, out result);
@@ -297,3 +303,4 @@ public sealed class EvolutionEnvironment9 : IEvolutionEnvironment
     public bool TryEvolve<T>(T head, ISpeciesForm next, PKM pk, byte currentMaxLevel, byte levelMin, bool skipChecks, out EvoCriteria result) where T : ISpeciesForm
         => Tree.Forward.TryEvolve(head, next, pk, currentMaxLevel, levelMin, skipChecks, Tweak, out result);
 }
+

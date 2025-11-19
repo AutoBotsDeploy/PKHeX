@@ -98,8 +98,8 @@ public sealed class SlotChangeManager(SAVEditor se) : IDisposable
 
     private static SlotViewInfo<T> GetSlotInfo<T>(T pb) where T : Control
     {
-        var view = WinFormsUtil.FindFirstControlOfType<ISlotViewer<T>>(pb);
-        ArgumentNullException.ThrowIfNull(view);
+        if (!WinFormsUtil.TryFindFirstControlOfType<ISlotViewer<T>>(pb, out var view))
+            ArgumentNullException.ThrowIfNull(view);
         var src = view.GetSlotData(pb);
         return new SlotViewInfo<T>(src, view);
     }
@@ -207,7 +207,7 @@ public sealed class SlotChangeManager(SAVEditor se) : IDisposable
     private bool TryMakeDragDropPKM(PictureBox pb, ReadOnlySpan<byte> data, string newfile)
     {
         var img = pb.Image as Bitmap;
-        ArgumentNullException.ThrowIfNull(img, nameof(img));
+        ArgumentNullException.ThrowIfNull(img);
         File.WriteAllBytes(newfile, data);
 
         Drag.SetCursor(pb.FindForm(), new Cursor(img.GetHicon()));
